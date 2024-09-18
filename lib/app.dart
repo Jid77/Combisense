@@ -1,0 +1,20 @@
+import 'package:flutter/material.dart';
+import 'pages/home_page.dart';
+import 'pages/splash_screen.dart';
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Dashboard Monitoring Utility',
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+        scaffoldBackgroundColor: Colors.white,
+      ),
+      home: HomePage(),
+      // home: SplashScreen(),
+    );
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "1046769102169",
+    "firebase_url": "https://test-dashboardalarmcombiphar-default-rtdb.firebaseio.com",
+    "project_id": "test-dashboardalarmcombiphar",
+    "storage_bucket": "test-dashboardalarmcombiphar.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1046769102169:android:0c3c81c9dbf30784917048",
+        "android_client_info": {
+          "package_name": "com.example.aplikasitest1"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBDhdGlznAcz3MKkrmwJbnEuO-heW4VT7E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
