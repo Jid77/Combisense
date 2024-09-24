@@ -1,6 +1,11 @@
 import 'package:firebase_database/firebase_database.dart';
 import 'package:hive/hive.dart';
 import 'dart:async';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+
+// Inisialisasi notifikasi lokal (Harus diinisialisasi di main.dart sebelumnya)
+final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+    FlutterLocalNotificationsPlugin();
 
 Future<void> fetchDataFromFirebase() async {
   try {
@@ -8,6 +13,8 @@ Future<void> fetchDataFromFirebase() async {
         await FirebaseDatabase.instance.ref('sensor_data').get();
     if (dataSnapshot.value != null) {
       final data = Map<dynamic, dynamic>.from(dataSnapshot.value as Map);
+
+      // Parsing nilai dari Firebase
       final tk201 = data['tk201']?.toDouble() ?? 0;
       final tk202 = data['tk202']?.toDouble() ?? 0;
       final tk103 = data['tk103']?.toDouble() ?? 0;
@@ -16,7 +23,11 @@ Future<void> fetchDataFromFirebase() async {
       final oiless = data['oiless'] ?? 0;
       final timestamp = DateTime.now();
 
-      final box = Hive.box('sensorDataBox'); // Access the already opened box
+      // Cek kondisi alarm, jika data sensor keluar dari range maka kirim notifikasi
+      await checkAlarmCondition(tk201, tk202, tk103, boiler, ofda, oiless);
+
+      // Simpan data ke Hive
+      final box = Hive.box('sensorDataBox');
       int index = box.length ~/ 3;
       box.put('tk201_${index + 1}', tk201);
       box.put('tk202_${index + 1}', tk202);
@@ -27,7 +38,58 @@ Future<void> fetchDataFromFirebase() async {
       box.put('oiless', oiless);
     }
   } catch (e) {
-    // Handle exceptions, maybe log the error
     print("Error fetching data: $e");
   }
+}
+
+Future<void> checkAlarmCondition(double tk201, double tk202, double tk103,
+    int boiler, int ofda, int oiless) async {
+  const double minRange = 65.0;
+  const double maxRange = 80.0;
+
+  if (tk201 < minRange || tk201 > maxRange) {
+    await sendAlarmNotification("Warning: tk201 out of range: $tk201");
+  }
+  if (tk202 < minRange || tk202 > maxRange) {
+    await sendAlarmNotification("Warning: tk202 out of range: $tk202");
+  }
+  if (tk103 < minRange || tk103 > maxRange) {
+    await sendAlarmNotification("Warning: tk103 out of range: $tk103");
+  }
+
+  if (boiler == 0) {
+    await sendAlarmNotification("Warning: Boiler System Abnormal");
+  }
+  if (ofda == 0) {
+    await sendAlarmNotification("Warning: OFDA System Abnormal");
+  }
+  if (oiless == 0) {
+    await sendAlarmNotification("Warning: Oiless System Abnormal");
+  }
+}
+
+Future<void> sendAlarmNotification(String message) async {
+  print("Sending alarm notification: $message");
+  const AndroidNotificationDetails androidPlatformChannelSpecifics =
+      AndroidNotificationDetails(
+    'alarm_channel', // ID unik untuk channel
+    'Sensor Alarm', // Nama channel
+    channelDescription: 'Alarm when sensor data is out of range',
+    importance: Importance.max,
+    priority: Priority.high,
+    sound: RawResourceAndroidNotificationSound('classicalarm'),
+    ticker: 'Sensor Alarm',
+  );
+
+  const NotificationDetails platformChannelSpecifics =
+      NotificationDetails(android: androidPlatformChannelSpecifics);
+
+  // Menampilkan notifikasi
+  await flutterLocalNotificationsPlugin.show(
+    0, // ID notifikasi
+    'Sensor Alarm', // Judul notifikasi
+    message, // Pesan notifikasi
+    platformChannelSpecifics,
+    // payload: 'Sensor Alarm Payload', // Payload tambahan (opsional)
+  );
 }

@@ -4,6 +4,37 @@ import 'package:fl_chart/fl_chart.dart';
 import 'dart:async';
 import 'package:hive/hive.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:aplikasitest1/services/background_task_service.dart';
+
+final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+    FlutterLocalNotificationsPlugin();
+// Fungsi yang akan dipanggil saat tombol ditekan
+Future<void> sendManualNotification() async {
+  const AndroidNotificationDetails androidPlatformChannelSpecifics =
+      AndroidNotificationDetails(
+    'manual_channel', // ID unik untuk channel manual
+    'Manual Notif', // Nama channel
+    channelDescription: 'Triggered manually from button',
+    importance: Importance.max,
+    priority: Priority.high,
+    sound: RawResourceAndroidNotificationSound('classicalarm'),
+
+    ticker: 'Manual Notification',
+  );
+
+  const NotificationDetails platformChannelSpecifics =
+      NotificationDetails(android: androidPlatformChannelSpecifics);
+
+  // Tampilkan notifikasi manual
+  await flutterLocalNotificationsPlugin.show(
+    0, // ID notifikasi
+    'Manual Trigger', // Judul notifikasi
+    'This notification is triggered manually by pressing a button.', // Pesan notifikasi
+    platformChannelSpecifics,
+    payload: 'Manual Trigger Payload',
+  );
+}
 
 class HomePage extends StatefulWidget {
   @override
@@ -57,6 +88,8 @@ class _HomePageState extends State<HomePage> {
       final ofda = data['ofda'] ?? 0;
       final oiless = data['oiless'] ?? 0;
       final timestamp = DateTime.now();
+      // Cek kondisi alarm, jika data sensor keluar dari range maka kirim notifikasi
+      await checkAlarmCondition(tk201, tk202, tk103, boiler, ofda, oiless);
 
       setState(() {
         _index++;
@@ -178,7 +211,13 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ),
                     SizedBox(height: 16),
-
+                    ElevatedButton(
+                      onPressed: sendManualNotification,
+                      child: Text('Kirim Notifikasi Manual'),
+                      // style: ElevatedButton.styleFrom(
+                      //   primary: Colors.green, // Ganti warna tombol
+                      // ),
+                    ),
                     // Minimalist divider
                     Container(
                       height: 2, // Thickness of the line
