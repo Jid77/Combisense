@@ -15,6 +15,8 @@ void main() async {
   await Firebase.initializeApp();
   await Hive.initFlutter(); // Hive init here
   await Hive.openBox('sensorDataBox'); // Open Box for sensor data
+  await Hive.openBox('alarmHistoryBox'); // Open Box for sensor data
+
   await Hive.openBox('settingsBox'); // Open Box for settings if needed
 
   Workmanager().initialize(callbackDispatcher);
@@ -53,7 +55,6 @@ void main() async {
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) {
     print("Workmanager is running the task: $task"); // Tambahkan log ini
-
     fetchDataFromFirebase();
     return Future.value(true);
   });

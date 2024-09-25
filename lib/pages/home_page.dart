@@ -3,38 +3,14 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'dart:async';
 import 'package:hive/hive.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:aplikasitest1/services/background_task_service.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
-// Fungsi yang akan dipanggil saat tombol ditekan
-Future<void> sendManualNotification() async {
-  const AndroidNotificationDetails androidPlatformChannelSpecifics =
-      AndroidNotificationDetails(
-    'manual_channel', // ID unik untuk channel manual
-    'Manual Notif', // Nama channel
-    channelDescription: 'Triggered manually from button',
-    importance: Importance.max,
-    priority: Priority.high,
-    sound: RawResourceAndroidNotificationSound('classicalarm'),
-
-    ticker: 'Manual Notification',
-  );
-
-  const NotificationDetails platformChannelSpecifics =
-      NotificationDetails(android: androidPlatformChannelSpecifics);
-
-  // Tampilkan notifikasi manual
-  await flutterLocalNotificationsPlugin.show(
-    0, // ID notifikasi
-    'Manual Trigger', // Judul notifikasi
-    'This notification is triggered manually by pressing a button.', // Pesan notifikasi
-    platformChannelSpecifics,
-    payload: 'Manual Trigger Payload',
-  );
-}
 
 class HomePage extends StatefulWidget {
   @override
@@ -51,6 +27,7 @@ class _HomePageState extends State<HomePage> {
   int _index = 0;
   late Timer _timer;
   late Box _sensorDataBox;
+  late Box _alarmHistoryBox;
   final DateFormat formatter = DateFormat('HH:mm');
 
   int _boilerStatus = 0;
@@ -58,11 +35,13 @@ class _HomePageState extends State<HomePage> {
   int _oilessStatus = 0;
 
   bool _isLoading = true;
+  int _selectedIndex = 0;
 
   @override
   void initState() {
     super.initState();
     _sensorDataBox = Hive.box('sensorDataBox');
+    _alarmHistoryBox = Hive.box('alarmHistoryBox');
 
     _loadDataFromHive();
 
@@ -89,7 +68,8 @@ class _HomePageState extends State<HomePage> {
       final oiless = data['oiless'] ?? 0;
       final timestamp = DateTime.now();
       // Cek kondisi alarm, jika data sensor keluar dari range maka kirim notifikasi
-      await checkAlarmCondition(tk201, tk202, tk103, boiler, ofda, oiless);
+      await checkAlarmCondition(
+          tk201, tk202, tk103, boiler, ofda, oiless, timestamp);
 
       setState(() {
         _index++;
@@ -135,6 +115,12 @@ class _HomePageState extends State<HomePage> {
     _index = _sensorDataBox.length ~/ 3;
   }
 
+  void _onBottomNavTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
+
   @override
   void dispose() {
     _timer.cancel();
@@ -146,151 +132,267 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Dashboard Monitoring Utility'),
+        backgroundColor: Color(0xFF1E88E5),
       ),
-      body: _isLoading
-          ? Center(
-              child: CircularProgressIndicator(),
-            ) // Display loading indicator when fetching data
-          : SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Outer container for status widgets with background
-                    Container(
-                      padding: EdgeInsets.all(
-                          16.0), // Padding around the status widgets
-                      decoration: BoxDecoration(
-                        color:
-                            Colors.white, // Background color for the container
-                        borderRadius:
-                            BorderRadius.circular(12.0), // Rounded corners
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.grey.withOpacity(0.3),
-                            spreadRadius: 2,
-                            blurRadius: 8,
-                            offset: Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        children: [
-                          // Display the status of boiler, ofda, and oiless
-                          Container(
-                            padding: EdgeInsets.all(
-                                8.0), // Padding inside the status container
-                            decoration: BoxDecoration(
-                              color: Colors
-                                  .white, // Background color for status row
-                              borderRadius:
-                                  BorderRadius.circular(8.0), // Rounded corners
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                              children: [
-                                Expanded(
-                                  child: _buildStatusWidget(
-                                      'Boiler', _boilerStatus),
-                                ),
-                                SizedBox(width: 8), // Spacing between widgets
-                                Expanded(
-                                  child:
-                                      _buildStatusWidget('OFDA', _ofdaStatus),
-                                ),
-                                SizedBox(width: 8), // Spacing between widgets
-                                Expanded(
-                                  child: _buildStatusWidget(
-                                      'Oiless', _oilessStatus),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
+      body: Stack(
+        children: [
+          _selectedIndex == 0 ? _buildHomeContent() : _buildHistoryContent(),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: Container(
+              margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(35),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 10,
+                    offset: Offset(0, -3),
+                  ),
+                ],
+              ),
+              child: BottomNavigationBar(
+                currentIndex: _selectedIndex,
+                onTap: _onBottomNavTapped,
+                items: [
+                  BottomNavigationBarItem(
+                    icon: SvgPicture.asset(
+                      'assets/images/home.svg',
+                      color: _selectedIndex == 0
+                          ? Color(0xFF1E88E5)
+                          : Colors.black54, // Ubah warna saat dipilih
+                      width: 24,
+                      height: 24,
                     ),
-                    SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: sendManualNotification,
-                      child: Text('Kirim Notifikasi Manual'),
-                      // style: ElevatedButton.styleFrom(
-                      //   primary: Colors.green, // Ganti warna tombol
-                      // ),
-                    ),
-                    // Minimalist divider
-                    Container(
-                      height: 2, // Thickness of the line
-                      width: double
-                          .infinity, // Span the width of the parent container
-                      color: Colors.grey
-                          .withOpacity(0.3), // Light grey color for the line
-                    ),
-                    SizedBox(height: 16),
-                    Container(
-                      padding: EdgeInsets.all(16.0),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12.0),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.grey.withOpacity(0.3),
-                            spreadRadius: 2,
-                            blurRadius: 8,
-                            offset: Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            "Current Temperature",
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          SizedBox(height: 16),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceAround,
-                            children: [
-                              _buildCircularValue(
-                                  'Tk201',
-                                  _tk201Data.isNotEmpty
-                                      ? _tk201Data.last.y
-                                      : 0),
-                              _buildCircularValue(
-                                  'Tk202',
-                                  _tk202Data.isNotEmpty
-                                      ? _tk202Data.last.y
-                                      : 0),
-                              _buildCircularValue(
-                                  'Tk103',
-                                  _tk103Data.isNotEmpty
-                                      ? _tk103Data.last.y
-                                      : 0),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    SizedBox(height: 16),
-
-                    // Title and Chart
-                    Text(
-                      "Graphic Temperature Vent Filter",
-                      style:
-                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    SizedBox(height: 16),
-                    _buildChart(),
-                  ],
-                ),
+                    label: 'Home',
+                  ),
+                  const BottomNavigationBarItem(
+                    icon: Icon(Icons.history_sharp, size: 24),
+                    label: 'History',
+                  ),
+                ],
+                selectedItemColor: Color(0xFF1E88E5),
+                unselectedItemColor: Colors.black54,
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                type: BottomNavigationBarType.fixed,
+                // selectedLabelStyle: TextStyle(
+                //   fontWeight: FontWeight.bold,
+                // ),
+                // unselectedLabelStyle: TextStyle(
+                //   fontWeight: FontWeight.w600,
+                // ),
               ),
             ),
+          ),
+        ],
+      ),
     );
+  }
+
+  Widget _buildHistoryContent() {
+    return ValueListenableBuilder(
+      valueListenable: _alarmHistoryBox.listenable(),
+      builder: (context, Box box, _) {
+        final alarmEntries =
+            box.values.map((entry) => entry as Map<dynamic, dynamic>).toList();
+
+        // Mengurutkan alarm berdasarkan timestamp, terbaru di atas
+        alarmEntries.sort((a, b) {
+          DateTime timestampA = a['timestamp'] is String
+              ? DateTime.parse(a['timestamp'])
+              : a['timestamp'];
+          DateTime timestampB = b['timestamp'] is String
+              ? DateTime.parse(b['timestamp'])
+              : b['timestamp'];
+          return timestampB.compareTo(timestampA);
+        });
+
+        return ListView.builder(
+          itemCount: alarmEntries.length,
+          itemBuilder: (context, index) {
+            final alarm = alarmEntries[index];
+
+            // Format timestamp ke string sederhana
+            String formattedTimestamp = alarm['timestamp'] is DateTime
+                ? DateFormat('MMMM dd, yyyy HH:mm WIB')
+                    .format(alarm['timestamp']) // Format: YYYY-MM-DD HH:MM
+                : alarm['timestamp']; // Jika string, langsung ambil
+            // Menampilkan nama alarm dan nilai sensor di judul
+            String title = '${alarm['alarmName']} - ${alarm['sensorValue']}°';
+
+            return Card(
+              margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
+              elevation: 3,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(35), // Rounded corners
+              ),
+              color: const Color.fromARGB(
+                  255, 255, 255, 255), // Background color for the card
+              child: ListTile(
+                contentPadding: const EdgeInsets.all(16), // Padding in the card
+                title: Text(
+                  title,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                    color: const Color.fromARGB(255, 0, 0, 0), // Title color
+                  ),
+                ),
+                subtitle: Text(
+                  '$formattedTimestamp',
+                  style: TextStyle(color: Colors.grey[600]),
+                ),
+                trailing: IconButton(
+                  icon: Icon(Icons.delete, color: const Color(0xFF1E88E5)),
+                  onPressed: () {
+                    // Menghapus alarm dari Hive
+                    box.deleteAt(index);
+                  },
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildHomeContent() {
+    return _isLoading
+        ? Center(
+            child: CircularProgressIndicator(),
+          ) // Display loading indicator when fetching data
+        : SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Outer container for status widgets with background
+                  Container(
+                    padding: EdgeInsets.all(
+                        16.0), // Padding around the status widgets
+                    decoration: BoxDecoration(
+                      color: Colors.white, // Background color for the container
+                      borderRadius:
+                          BorderRadius.circular(12.0), // Rounded corners
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.3),
+                          spreadRadius: 2,
+                          blurRadius: 8,
+                          offset: Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        // Display the status of boiler, ofda, and oiless
+                        Container(
+                          padding: EdgeInsets.all(
+                              8.0), // Padding inside the status container
+                          decoration: BoxDecoration(
+                            color:
+                                Colors.white, // Background color for status row
+                            borderRadius:
+                                BorderRadius.circular(8.0), // Rounded corners
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              Expanded(
+                                child:
+                                    _buildStatusWidget('Boiler', _boilerStatus),
+                              ),
+                              SizedBox(width: 8), // Spacing between widgets
+                              Expanded(
+                                child: _buildStatusWidget('OFDA', _ofdaStatus),
+                              ),
+                              SizedBox(width: 8), // Spacing between widgets
+                              Expanded(
+                                child:
+                                    _buildStatusWidget('Oiless', _oilessStatus),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: sendManualNotification,
+                    child: Text('Kirim Notifikasi Manual'),
+                    // style: ElevatedButton.styleFrom(
+                    //   primary: Colors.green, // Ganti warna tombol
+                    // ),
+                  ),
+                  // Minimalist divider
+                  Container(
+                    height: 2, // Thickness of the line
+                    width: double
+                        .infinity, // Span the width of the parent container
+                    color: Colors.grey
+                        .withOpacity(0.3), // Light grey color for the line
+                  ),
+                  SizedBox(height: 16),
+                  Container(
+                    padding: EdgeInsets.all(16.0),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12.0),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.3),
+                          spreadRadius: 2,
+                          blurRadius: 8,
+                          offset: Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Current Temperature",
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(height: 16),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            _buildCircularValue('Tk201',
+                                _tk201Data.isNotEmpty ? _tk201Data.last.y : 0),
+                            _buildCircularValue('Tk202',
+                                _tk202Data.isNotEmpty ? _tk202Data.last.y : 0),
+                            _buildCircularValue('Tk103',
+                                _tk103Data.isNotEmpty ? _tk103Data.last.y : 0),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  SizedBox(height: 16),
+
+                  // Title and Chart
+                  Text(
+                    "Graphic Temperature Vent Filter",
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 16),
+                  _buildChart(),
+                ],
+              ),
+            ),
+          );
   }
 
   Widget _buildStatusWidget(String label, int status) {

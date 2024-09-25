@@ -39,8 +39,7 @@ dependencies:
   path_provider: ^2.0.10
   workmanager: ^0.5.1
   flutter_local_notifications: ^17.2.3
-  permission_handler: ^11.3.1 # Versi terbaru dari permission_handler
-
+  permission_handler: ^11.3.1 # Versi terbaru dari permission_handler 
 
 
 
@@ -77,6 +76,8 @@ flutter:
   assets:
   - assets/images/combiphar-seeklogo.svg
   - assets/images/combiutility.png
+  - assets/images/home.png
+  - assets/images/home.svg
   #   - images/a_dot_burr.jpeg
   #   - images/a_dot_ham.jpeg
 

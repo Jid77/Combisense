@@ -24,7 +24,8 @@ Future<void> fetchDataFromFirebase() async {
       final timestamp = DateTime.now();
 
       // Cek kondisi alarm, jika data sensor keluar dari range maka kirim notifikasi
-      await checkAlarmCondition(tk201, tk202, tk103, boiler, ofda, oiless);
+      await checkAlarmCondition(
+          tk201, tk202, tk103, boiler, ofda, oiless, timestamp);
 
       // Simpan data ke Hive
       final box = Hive.box('sensorDataBox');
@@ -43,28 +44,60 @@ Future<void> fetchDataFromFirebase() async {
 }
 
 Future<void> checkAlarmCondition(double tk201, double tk202, double tk103,
-    int boiler, int ofda, int oiless) async {
+    int boiler, int ofda, int oiless, DateTime timestamp) async {
   const double minRange = 65.0;
   const double maxRange = 80.0;
 
+  final box = Hive.box('alarmHistoryBox'); // Box untuk menyimpan riwayat alarm
+
   if (tk201 < minRange || tk201 > maxRange) {
     await sendAlarmNotification("Warning: tk201 out of range: $tk201");
+    box.add({
+      'timestamp': DateTime.now(),
+      'alarmName': 'tk201',
+      'sensorValue': tk201,
+    });
   }
   if (tk202 < minRange || tk202 > maxRange) {
     await sendAlarmNotification("Warning: tk202 out of range: $tk202");
+    box.add({
+      'timestamp': DateTime.now(),
+      'alarmName': 'tk202',
+      'sensorValue': tk202,
+    });
   }
   if (tk103 < minRange || tk103 > maxRange) {
     await sendAlarmNotification("Warning: tk103 out of range: $tk103");
+    box.add({
+      'timestamp': DateTime.now(),
+      'alarmName': 'tk103',
+      'sensorValue': tk103,
+    });
   }
 
   if (boiler == 0) {
     await sendAlarmNotification("Warning: Boiler System Abnormal");
+    box.add({
+      'timestamp': DateTime.now(),
+      'alarmName': 'boiler',
+      'sensorValue': boiler,
+    });
   }
   if (ofda == 0) {
     await sendAlarmNotification("Warning: OFDA System Abnormal");
+    box.add({
+      'timestamp': DateTime.now(),
+      'alarmName': 'ofda',
+      'sensorValue': ofda,
+    });
   }
   if (oiless == 0) {
     await sendAlarmNotification("Warning: Oiless System Abnormal");
+    box.add({
+      'timestamp': DateTime.now(),
+      'alarmName': 'oiless',
+      'sensorValue': oiless,
+    });
   }
 }
 
@@ -91,5 +124,30 @@ Future<void> sendAlarmNotification(String message) async {
     message, // Pesan notifikasi
     platformChannelSpecifics,
     // payload: 'Sensor Alarm Payload', // Payload tambahan (opsional)
+  );
+}
+
+Future<void> sendManualNotification() async {
+  const AndroidNotificationDetails androidPlatformChannelSpecifics =
+      AndroidNotificationDetails(
+    'manual_channel', // ID unik untuk channel manual
+    'Manual Notif', // Nama channel
+    channelDescription: 'Triggered manually from button',
+    importance: Importance.max,
+    priority: Priority.high,
+    sound: RawResourceAndroidNotificationSound('classicalarm'),
+    ticker: 'Manual Notification',
+  );
+
+  const NotificationDetails platformChannelSpecifics =
+      NotificationDetails(android: androidPlatformChannelSpecifics);
+
+  // Tampilkan notifikasi manual
+  await flutterLocalNotificationsPlugin.show(
+    0, // ID notifikasi
+    'Manual Trigger', // Judul notifikasi
+    'This notification is triggered manually by pressing a button.', // Pesan notifikasi
+    platformChannelSpecifics,
+    payload: 'Manual Trigger Payload',
   );
 }
