@@ -197,30 +197,31 @@ class _HomePageState extends State<HomePage> {
     return ValueListenableBuilder(
       valueListenable: _alarmHistoryBox.listenable(),
       builder: (context, Box box, _) {
-        final alarmEntries =
-            box.values.map((entry) => entry as Map<dynamic, dynamic>).toList();
+        final alarmEntries = box.toMap().entries.toList();
 
         // Mengurutkan alarm berdasarkan timestamp, terbaru di atas
         alarmEntries.sort((a, b) {
-          DateTime timestampA = a['timestamp'] is String
-              ? DateTime.parse(a['timestamp'])
-              : a['timestamp'];
-          DateTime timestampB = b['timestamp'] is String
-              ? DateTime.parse(b['timestamp'])
-              : b['timestamp'];
+          DateTime timestampA = a.value['timestamp'] is String
+              ? DateTime.parse(a.value['timestamp'])
+              : a.value['timestamp'];
+          DateTime timestampB = b.value['timestamp'] is String
+              ? DateTime.parse(b.value['timestamp'])
+              : b.value['timestamp'];
           return timestampB.compareTo(timestampA);
         });
 
         return ListView.builder(
           itemCount: alarmEntries.length,
           itemBuilder: (context, index) {
-            final alarm = alarmEntries[index];
+            final entry = alarmEntries[index];
+            final key = entry.key; // Mengambil kunci dari item
+            final alarm = entry.value;
 
             // Format timestamp ke string sederhana
             String formattedTimestamp = alarm['timestamp'] is DateTime
                 ? DateFormat('MMMM dd, yyyy HH:mm WIB')
-                    .format(alarm['timestamp']) // Format: YYYY-MM-DD HH:MM
-                : alarm['timestamp']; // Jika string, langsung ambil
+                    .format(alarm['timestamp'])
+                : alarm['timestamp'];
             // Menampilkan nama alarm dan nilai sensor di judul
             String title = '${alarm['alarmName']} - ${alarm['sensorValue']}°';
 
@@ -230,16 +231,15 @@ class _HomePageState extends State<HomePage> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(35), // Rounded corners
               ),
-              color: const Color.fromARGB(
-                  255, 255, 255, 255), // Background color for the card
+              color: const Color.fromARGB(255, 255, 255, 255),
               child: ListTile(
-                contentPadding: const EdgeInsets.all(16), // Padding in the card
+                contentPadding: const EdgeInsets.all(16),
                 title: Text(
                   title,
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 18,
-                    color: const Color.fromARGB(255, 0, 0, 0), // Title color
+                    color: const Color.fromARGB(255, 0, 0, 0),
                   ),
                 ),
                 subtitle: Text(
@@ -249,8 +249,8 @@ class _HomePageState extends State<HomePage> {
                 trailing: IconButton(
                   icon: Icon(Icons.delete, color: const Color(0xFF1E88E5)),
                   onPressed: () {
-                    // Menghapus alarm dari Hive
-                    box.deleteAt(index);
+                    // Menghapus alarm dari Hive menggunakan kunci yang tepat
+                    box.delete(key);
                   },
                 ),
               ),
