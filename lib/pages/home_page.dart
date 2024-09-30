@@ -8,6 +8,8 @@ import 'package:intl/intl.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:aplikasitest1/services/background_task_service.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:smooth_page_indicator/smooth_page_indicator.dart';
+import 'package:aplikasitest1/widgets/background_wave.dart';
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
@@ -29,6 +31,8 @@ class _HomePageState extends State<HomePage> {
   late Box _sensorDataBox;
   late Box _alarmHistoryBox;
   final DateFormat formatter = DateFormat('HH:mm');
+
+  final PageController _pageController = PageController();
 
   int _boilerStatus = 0;
   int _ofdaStatus = 0;
@@ -124,19 +128,46 @@ class _HomePageState extends State<HomePage> {
   @override
   void dispose() {
     _timer.cancel();
+    _pageController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Dashboard Monitoring Utility'),
-        backgroundColor: Color(0xFF1E88E5),
-      ),
       body: Stack(
         children: [
+          // Menempatkan Custom AppBar di belakang konten
+          ClipPath(
+            clipper: BackgroundWaveClipper(),
+            child: Container(
+              height: 210,
+              decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                colors: [Color(0xFFFFB1D7), Color(0xFFFFEAF0)],
+              )),
+              child: Center(),
+            ),
+          ),
+          // Konten utama
+          Positioned(
+            top: 100,
+            left: 0,
+            right: 0,
+            child: Center(
+              // Menggunakan Center untuk memposisikan teks di tengah
+              child: Text(
+                'Utility Monitoring Dashboard',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
+              ),
+            ),
+          ),
           _selectedIndex == 0 ? _buildHomeContent() : _buildHistoryContent(),
+
           Positioned(
             left: 0,
             right: 0,
@@ -160,21 +191,21 @@ class _HomePageState extends State<HomePage> {
                 items: [
                   BottomNavigationBarItem(
                     icon: SvgPicture.asset(
-                      'assets/images/home.svg',
+                      'assets/images/homefull.svg',
                       color: _selectedIndex == 0
-                          ? Color(0xFF1E88E5)
+                          ? Color(0xFFed4d9b)
                           : Colors.black54, // Ubah warna saat dipilih
-                      width: 24,
-                      height: 24,
+                      width: 20,
+                      height: 20,
                     ),
                     label: 'Home',
                   ),
                   const BottomNavigationBarItem(
-                    icon: Icon(Icons.history_sharp, size: 24),
+                    icon: Icon(Icons.history_sharp, size: 26),
                     label: 'History',
                   ),
                 ],
-                selectedItemColor: Color(0xFF1E88E5),
+                selectedItemColor: Color(0xFFed4d9b),
                 unselectedItemColor: Colors.black54,
                 backgroundColor: Colors.transparent,
                 elevation: 0,
@@ -194,242 +225,362 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildHistoryContent() {
-    return ValueListenableBuilder(
-      valueListenable: _alarmHistoryBox.listenable(),
-      builder: (context, Box box, _) {
-        final alarmEntries = box.toMap().entries.toList();
+    return Padding(
+      padding:
+          const EdgeInsets.only(top: 150.0), // Sesuaikan dengan tinggi app bar
 
-        // Mengurutkan alarm berdasarkan timestamp, terbaru di atas
-        alarmEntries.sort((a, b) {
-          DateTime timestampA = a.value['timestamp'] is String
-              ? DateTime.parse(a.value['timestamp'])
-              : a.value['timestamp'];
-          DateTime timestampB = b.value['timestamp'] is String
-              ? DateTime.parse(b.value['timestamp'])
-              : b.value['timestamp'];
-          return timestampB.compareTo(timestampA);
-        });
+      child: ValueListenableBuilder(
+        valueListenable: _alarmHistoryBox.listenable(),
+        builder: (context, Box box, _) {
+          final alarmEntries = box.toMap().entries.toList();
 
-        return ListView.builder(
-          itemCount: alarmEntries.length,
-          itemBuilder: (context, index) {
-            final entry = alarmEntries[index];
-            final key = entry.key; // Mengambil kunci dari item
-            final alarm = entry.value;
+          // Mengurutkan alarm berdasarkan timestamp, terbaru di atas
+          alarmEntries.sort((a, b) {
+            DateTime timestampA = a.value['timestamp'] is String
+                ? DateTime.parse(a.value['timestamp'])
+                : a.value['timestamp'];
+            DateTime timestampB = b.value['timestamp'] is String
+                ? DateTime.parse(b.value['timestamp'])
+                : b.value['timestamp'];
+            return timestampB.compareTo(timestampA);
+          });
 
-            // Format timestamp ke string sederhana
-            String formattedTimestamp = alarm['timestamp'] is DateTime
-                ? DateFormat('MMMM dd, yyyy HH:mm WIB')
-                    .format(alarm['timestamp'])
-                : alarm['timestamp'];
-            // Menampilkan nama alarm dan nilai sensor di judul
-            String title = '${alarm['alarmName']} - ${alarm['sensorValue']}°';
+          return ListView.builder(
+            itemCount: alarmEntries.length,
+            itemBuilder: (context, index) {
+              final entry = alarmEntries[index];
+              final key = entry.key; // Mengambil kunci dari item
+              final alarm = entry.value;
 
-            return Card(
-              margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
-              elevation: 3,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(35), // Rounded corners
-              ),
-              color: const Color.fromARGB(255, 255, 255, 255),
-              child: ListTile(
-                contentPadding: const EdgeInsets.all(16),
-                title: Text(
-                  title,
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                    color: const Color.fromARGB(255, 0, 0, 0),
+              // Format timestamp ke string sederhana
+              String formattedTimestamp = alarm['timestamp'] is DateTime
+                  ? DateFormat('MMMM dd, yyyy HH:mm WIB')
+                      .format(alarm['timestamp'])
+                  : alarm['timestamp'];
+              // Menampilkan nama alarm dan nilai sensor di judul
+              String title = '${alarm['alarmName']} - ${alarm['sensorValue']}°';
+
+              return Card(
+                margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
+                elevation: 3,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(35), // Rounded corners
+                ),
+                color: const Color.fromARGB(255, 255, 255, 255),
+                child: ListTile(
+                  contentPadding: const EdgeInsets.all(16),
+                  title: Text(
+                    title,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                      color: const Color.fromARGB(255, 0, 0, 0),
+                    ),
+                  ),
+                  subtitle: Text(
+                    '$formattedTimestamp',
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                  trailing: IconButton(
+                    icon: Icon(Icons.delete, color: const Color(0xFFed4d9b)),
+                    onPressed: () {
+                      // Menghapus alarm dari Hive menggunakan kunci yang tepat
+                      box.delete(key);
+                    },
                   ),
                 ),
-                subtitle: Text(
-                  '$formattedTimestamp',
-                  style: TextStyle(color: Colors.grey[600]),
-                ),
-                trailing: IconButton(
-                  icon: Icon(Icons.delete, color: const Color(0xFF1E88E5)),
-                  onPressed: () {
-                    // Menghapus alarm dari Hive menggunakan kunci yang tepat
-                    box.delete(key);
-                  },
-                ),
-              ),
-            );
-          },
-        );
-      },
+              );
+            },
+          );
+        },
+      ),
     );
   }
 
   Widget _buildHomeContent() {
     return _isLoading
         ? Center(
-            child: CircularProgressIndicator(),
-          ) // Display loading indicator when fetching data
-        : SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Outer container for status widgets with background
-                  Container(
-                    padding: EdgeInsets.all(
-                        16.0), // Padding around the status widgets
-                    decoration: BoxDecoration(
-                      color: Colors.white, // Background color for the container
-                      borderRadius:
-                          BorderRadius.circular(12.0), // Rounded corners
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.grey.withOpacity(0.3),
-                          spreadRadius: 2,
-                          blurRadius: 8,
-                          offset: Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        // Display the status of boiler, ofda, and oiless
-                        Container(
-                          padding: EdgeInsets.all(
-                              8.0), // Padding inside the status container
-                          decoration: BoxDecoration(
-                            color:
-                                Colors.white, // Background color for status row
-                            borderRadius:
-                                BorderRadius.circular(8.0), // Rounded corners
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            child:
+                CircularProgressIndicator(), // Display loading indicator when fetching data
+          )
+        : Padding(
+            padding: const EdgeInsets.only(
+                top: 150.0), // Sesuaikan dengan tinggi app bar
+            child: Column(
+              children: [
+                Expanded(
+                  child: PageView(
+                    controller: _pageController,
+                    children: [
+                      // Halaman pertama: Boiler,Oiless
+                      Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: SingleChildScrollView(
+                          // Tambahkan SingleChildScrollView di sini
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              Expanded(
-                                child:
-                                    _buildStatusWidget('Boiler', _boilerStatus),
-                              ),
-                              SizedBox(width: 8), // Spacing between widgets
-                              Expanded(
-                                child: _buildStatusWidget('OFDA', _ofdaStatus),
-                              ),
-                              SizedBox(width: 8), // Spacing between widgets
-                              Expanded(
-                                child:
-                                    _buildStatusWidget('Oiless', _oilessStatus),
+                              Padding(
+                                padding: const EdgeInsets.all(16.0),
+                                child: SingleChildScrollView(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      Padding(
+                                        padding: const EdgeInsets.all(16.0),
+                                        child: SingleChildScrollView(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.stretch,
+                                            children: [
+                                              // Box untuk status Boiler
+                                              Container(
+                                                padding: EdgeInsets.all(16.0),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.white,
+                                                  borderRadius:
+                                                      BorderRadius.circular(
+                                                          40.0),
+                                                  boxShadow: [
+                                                    BoxShadow(
+                                                      color: Colors.grey
+                                                          .withOpacity(0.3),
+                                                      spreadRadius: 2,
+                                                      blurRadius: 8,
+                                                      offset: Offset(0, 3),
+                                                    ),
+                                                  ],
+                                                ),
+                                                child: _buildStatusWidget(
+                                                    'Boiler',
+                                                    _boilerStatus,
+                                                    'assets/images/boiler.png',
+                                                    140,
+                                                    200), // Menambahkan assetImage
+                                              ),
+                                              SizedBox(
+                                                  height:
+                                                      36), // Spasi antar box
+                                              // Box untuk status Oiless
+                                              Container(
+                                                padding: EdgeInsets.all(16.0),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.white,
+                                                  borderRadius:
+                                                      BorderRadius.circular(
+                                                          40.0),
+                                                  boxShadow: [
+                                                    BoxShadow(
+                                                      color: Colors.grey
+                                                          .withOpacity(0.3),
+                                                      spreadRadius: 2,
+                                                      blurRadius: 8,
+                                                      offset: Offset(0, 3),
+                                                    ),
+                                                  ],
+                                                ),
+                                                child: _buildStatusWidget(
+                                                    'Oiless',
+                                                    _oilessStatus,
+                                                    'assets/images/air-compressor.png',
+                                                    120,
+                                                    150), // Menambahkan assetImage
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
                             ],
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                  SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: sendManualNotification,
-                    child: Text('Kirim Notifikasi Manual'),
-                    // style: ElevatedButton.styleFrom(
-                    //   primary: Colors.green, // Ganti warna tombol
-                    // ),
-                  ),
-                  // Minimalist divider
-                  Container(
-                    height: 2, // Thickness of the line
-                    width: double
-                        .infinity, // Span the width of the parent container
-                    color: Colors.grey
-                        .withOpacity(0.3), // Light grey color for the line
-                  ),
-                  SizedBox(height: 16),
-                  Container(
-                    padding: EdgeInsets.all(16.0),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12.0),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.grey.withOpacity(0.3),
-                          spreadRadius: 2,
-                          blurRadius: 8,
-                          offset: Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          "Current Temperature",
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
+                      ),
+
+                      // Halaman kedua: Current Temperature dan Graphic Temperature
+                      Padding(
+                        padding: const EdgeInsets.only(
+                            top: 25.0, left: 16, right: 16, bottom: 16),
+                        child: SingleChildScrollView(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Container(
+                                padding: EdgeInsets.symmetric(
+                                    vertical: 8.0, horizontal: 16.0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      "Temperature Vent Filter",
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.black,
+                                      ),
+                                      textAlign: TextAlign.start,
+                                    ),
+                                    SizedBox(
+                                        height:
+                                            4), // Jarak antara teks dan garis
+                                    Divider(
+                                      thickness: 2, // Ketebalan garis
+                                      color: Colors.black, // Warna garis
+                                      indent: 0, // Jarak dari tepi kiri
+                                      endIndent: 150, // Jarak dari tepi kanan
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              SizedBox(height: 10),
+
+                              // Container for Current Temperature display
+                              Container(
+                                padding: EdgeInsets.all(16.0),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(12.0),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.grey.withOpacity(0.3),
+                                      spreadRadius: 2,
+                                      blurRadius: 8,
+                                      offset: Offset(0, 3),
+                                    ),
+                                  ],
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      "Current Temperature",
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    SizedBox(height: 16),
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceAround,
+                                      children: [
+                                        _buildCircularValue(
+                                          'Tk201',
+                                          _tk201Data.isNotEmpty
+                                              ? _tk201Data.last.y
+                                              : 0,
+                                        ),
+                                        _buildCircularValue(
+                                          'Tk202',
+                                          _tk202Data.isNotEmpty
+                                              ? _tk202Data.last.y
+                                              : 0,
+                                        ),
+                                        _buildCircularValue(
+                                          'Tk103',
+                                          _tk103Data.isNotEmpty
+                                              ? _tk103Data.last.y
+                                              : 0,
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              SizedBox(height: 16),
+
+                              // Title and Chart
+                              Text(
+                                "Graphic Temperature",
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              SizedBox(height: 16),
+                              _buildChart(),
+                            ],
                           ),
                         ),
-                        SizedBox(height: 16),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
-                          children: [
-                            _buildCircularValue('Tk201',
-                                _tk201Data.isNotEmpty ? _tk201Data.last.y : 0),
-                            _buildCircularValue('Tk202',
-                                _tk202Data.isNotEmpty ? _tk202Data.last.y : 0),
-                            _buildCircularValue('Tk103',
-                                _tk103Data.isNotEmpty ? _tk103Data.last.y : 0),
-                          ],
-                        ),
-                      ],
+                      )
+                    ],
+                  ),
+                ),
+                // Smooth Page Indicator
+                Padding(
+                  padding: const EdgeInsets.only(
+                      bottom: 76.0), // Atur jarak sesuai kebutuhan
+                  child: SmoothPageIndicator(
+                    controller: _pageController,
+                    count: 4, // Jumlah halaman yang ada di PageView
+                    effect: WormEffect(
+                      dotHeight: 8.0,
+                      dotWidth: 8.0,
+                      activeDotColor: Color(0xFFed4d9b),
+                      dotColor: Colors.grey.withOpacity(0.5),
                     ),
                   ),
-
-                  SizedBox(height: 16),
-
-                  // Title and Chart
-                  Text(
-                    "Graphic Temperature Vent Filter",
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  SizedBox(height: 16),
-                  _buildChart(),
-                ],
-              ),
+                ),
+              ],
             ),
           );
   }
 
-  Widget _buildStatusWidget(String label, int status) {
+  Widget _buildStatusWidget(String label, int status, String assetImage,
+      double imageWidth, double imageHeight) {
     return Container(
       width: 110, // Increased width for better readability
+      height: 200,
       padding: EdgeInsets.all(10.0),
-      // decoration: BoxDecoration(
-      //   color: Colors.white,
-      //   borderRadius: BorderRadius.circular(12.0),
-      //   border: Border.all(
-      //     color: Colors.grey.withOpacity(0.3),
-      //     width: 1.0,
-      //   ),
-      //   // boxShadow: [
-      //   //   BoxShadow(
-      //   //     color: Colors.grey.withOpacity(0.2),
-      //   //     spreadRadius: 1,
-      //   //     blurRadius: 5,
-      //   //     offset: Offset(0, 1),
-      //   //   ),
-      //   // ],
-      // ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Icon(
-            status == 1 ? Icons.circle : Icons.cancel,
-            color: status == 1 ? Color(0xFF40A578) : Colors.red,
-            size: 36,
+          // Gambar di sebelah kiri
+          Image.asset(
+            assetImage, // Menggunakan parameter untuk path gambar
+            width: imageWidth, // Ukuran gambar boiler
+            height: imageHeight,
           ),
-          SizedBox(height: 8),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-              color: Colors.black87,
+          SizedBox(width: 10), // Jarak antara gambar dan teks
+          // Teks di sebelah kanan
+          Expanded(
+            child: Column(
+              mainAxisAlignment:
+                  MainAxisAlignment.center, // Memusatkan teks secara vertikal
+              crossAxisAlignment: CrossAxisAlignment
+                  .center, // Memposisikan teks di sebelah kiri
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.black87,
+                  ),
+                ),
+                SizedBox(height: 10),
+                Container(
+                  padding: EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: status == 1
+                        ? Color(0xFF6FCF97) // Warna hijau untuk status normal
+                        : Color(
+                            0xFFFF6B6B), // Warna merah untuk status abnormal
+                    borderRadius: BorderRadius.circular(8.0),
+                  ),
+                  child: Text(
+                    status == 1 ? "Normal" : "Abnormal", // Teks status
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -438,8 +589,42 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildChart() {
+    // Menghitung waktu satu jam yang lalu
+    DateTime now = DateTime.now();
+    DateTime oneHourAgo = now.subtract(Duration(hours: 1));
+
+    // Filter data berdasarkan waktu satu jam terakhir
+    List<FlSpot> filteredTk201Data = _tk201Data
+        .where((spot) => DateTime.fromMillisecondsSinceEpoch(spot.x.toInt())
+            .isAfter(oneHourAgo))
+        .toList();
+
+    List<FlSpot> filteredTk202Data = _tk202Data
+        .where((spot) => DateTime.fromMillisecondsSinceEpoch(spot.x.toInt())
+            .isAfter(oneHourAgo))
+        .toList();
+
+    List<FlSpot> filteredTk103Data = _tk103Data
+        .where((spot) => DateTime.fromMillisecondsSinceEpoch(spot.x.toInt())
+            .isAfter(oneHourAgo))
+        .toList();
+
+    // Menentukan maxX dan minX
+    double maxX = filteredTk201Data.isNotEmpty
+        ? filteredTk201Data.last.x
+        : 50; // Set default jika tidak ada data
+    double minX = filteredTk201Data.isNotEmpty
+        ? filteredTk201Data.first.x
+        : 0; // Set minX ke 0 jika tidak ada data
+
+    // Jika data kurang dari satu jam, reset minX dan maxX
+    if (filteredTk201Data.isEmpty) {
+      maxX = 50; // Atur maxX ke nilai default
+      minX = 0; // Mulai dari 0
+    }
+
     return Container(
-      height: 300, // Reduced height for a smaller chart container
+      height: 300, // Tinggi kontainer grafik
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -482,19 +667,16 @@ class _HomePageState extends State<HomePage> {
                       showTitles: true,
                       reservedSize: 40,
                       getTitlesWidget: (value, meta) {
-                        int idx = value.toInt();
-                        if (idx < _timestamps.length) {
-                          return Padding(
-                            padding: const EdgeInsets.only(top: 15),
-                            child: Text(
-                              _timestamps[idx],
-                              style:
-                                  TextStyle(color: Colors.black, fontSize: 10),
-                            ),
-                          );
-                        } else {
-                          return Text('');
-                        }
+                        // Menampilkan timestamp sebagai label
+                        DateTime timestamp =
+                            DateTime.fromMillisecondsSinceEpoch(value.toInt());
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 15),
+                          child: Text(
+                            "${timestamp.hour}:${timestamp.minute}",
+                            style: TextStyle(color: Colors.black, fontSize: 10),
+                          ),
+                        );
                       },
                     ),
                   ),
@@ -525,28 +707,34 @@ class _HomePageState extends State<HomePage> {
                   show: true,
                   border: Border.all(color: Colors.black, width: 1),
                 ),
-                minX: 0,
-                maxX: _index.toDouble(),
+                minX: minX,
+                maxX: maxX, // Set maxX berdasarkan data yang sudah difilter
                 minY: 65,
                 maxY: 85,
                 lineBarsData: [
                   LineChartBarData(
-                    spots: _tk201Data,
+                    spots: filteredTk201Data,
                     isCurved: true,
+                    curveSmoothness: 1.0,
                     barWidth: 2,
-                    color: Color(0xFF1E88E5),
+                    color: Color(0xFFed4d9b),
+                    dotData: FlDotData(show: false),
                   ),
                   LineChartBarData(
-                    spots: _tk202Data,
+                    spots: filteredTk202Data,
                     isCurved: true,
+                    curveSmoothness: 1.0,
                     barWidth: 2,
                     color: Color(0xFF9C27B0),
+                    dotData: FlDotData(show: false),
                   ),
                   LineChartBarData(
-                    spots: _tk103Data,
+                    spots: filteredTk103Data,
                     isCurved: true,
+                    curveSmoothness: 1.0,
                     barWidth: 2,
                     color: Color(0xFFC6849B),
+                    dotData: FlDotData(show: false),
                   ),
                 ],
               ),
@@ -556,7 +744,7 @@ class _HomePageState extends State<HomePage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _buildLegend(color: Color(0xFF1E88E5), label: 'Tk201'),
+              _buildLegend(color: Color(0xFFed4d9b), label: 'Tk201'),
               _buildLegend(color: Color(0xFF9C27B0), label: 'Tk202'),
               _buildLegend(color: Color(0xFFC6849B), label: 'Tk103'),
             ],
@@ -593,7 +781,7 @@ class _HomePageState extends State<HomePage> {
           width: 80,
           height: 80,
           decoration: BoxDecoration(
-            color: Colors.blueAccent, // Ganti warna sesuai kebutuhan
+            color: Color(0xFF8547b0), // Ganti warna sesuai kebutuhan
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(

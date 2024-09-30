@@ -10,11 +10,12 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Dashboard Monitoring Utility',
       theme: ThemeData(
+        fontFamily: 'TabacSans',
         primarySwatch: Colors.blue,
         scaffoldBackgroundColor: Colors.white,
       ),
       home: HomePage(),
-      
+
       // home: SplashScreen(),
     );
   }
