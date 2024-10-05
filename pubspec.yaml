@@ -41,8 +41,9 @@ dependencies:
   flutter_local_notifications: ^17.2.3
   permission_handler: ^11.3.1 # Versi terbaru dari permission_handler 
   smooth_page_indicator: ^1.2.0+3
-
-
+  flutter_foreground_task: ^8.10.2
+  flutter_background_service: ^5.0.10
+  provider: ^6.1.2
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
@@ -81,6 +82,8 @@ flutter:
   - assets/images/homefull.svg
   - assets/images/boiler.png
   - assets/images/air-compressor.png
+  - assets/images/C.PNG
+  - assets/images/combiwhite.png
   fonts:
     - family: TabacSans
       fonts:

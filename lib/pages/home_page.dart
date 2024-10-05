@@ -40,13 +40,18 @@ class _HomePageState extends State<HomePage> {
 
   bool _isLoading = true;
   int _selectedIndex = 0;
-
+  // State untuk mengontrol status alarm
+  bool _isBoilerAlarmEnabled = true;
+  bool _isOfdaAlarmEnabled = true;
+  bool _isOilessAlarmEnabled = true;
+  bool _isVentFilterAlarmEnabled = true;
   @override
   void initState() {
     super.initState();
     _sensorDataBox = Hive.box('sensorDataBox');
     _alarmHistoryBox = Hive.box('alarmHistoryBox');
 
+    _loadAlarmSettings();
     _loadDataFromHive();
 
     _timer = Timer.periodic(Duration(minutes: 1), (timer) {
@@ -119,6 +124,23 @@ class _HomePageState extends State<HomePage> {
     _index = _sensorDataBox.length ~/ 3;
   }
 
+  void _loadAlarmSettings() {
+    final settingsBox = Hive.box('settingsBox');
+    _isBoilerAlarmEnabled =
+        settingsBox.get('boilerAlarmEnabled', defaultValue: true);
+    _isOfdaAlarmEnabled =
+        settingsBox.get('ofdaAlarmEnabled', defaultValue: true);
+    _isOilessAlarmEnabled =
+        settingsBox.get('oilessAlarmEnabled', defaultValue: true);
+    _isVentFilterAlarmEnabled =
+        settingsBox.get('ventFilterAlarmEnabled', defaultValue: true);
+  }
+
+  Future<void> _updateAlarmSettings(String sensor, bool isEnabled) async {
+    final settingsBox = Hive.box('settingsBox');
+    await settingsBox.put('${sensor}AlarmEnabled', isEnabled);
+  }
+
   void _onBottomNavTapped(int index) {
     setState(() {
       _selectedIndex = index;
@@ -143,9 +165,10 @@ class _HomePageState extends State<HomePage> {
             child: Container(
               height: 210,
               decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                colors: [Color(0xFFFFB1D7), Color(0xFFFFEAF0)],
-              )),
+                gradient: LinearGradient(
+                  colors: [Color(0xFF532F8F), Color(0xFF532F8F)],
+                ),
+              ),
               child: Center(),
             ),
           ),
@@ -155,19 +178,35 @@ class _HomePageState extends State<HomePage> {
             left: 0,
             right: 0,
             child: Center(
-              // Menggunakan Center untuk memposisikan teks di tengah
-              child: Text(
-                'Utility Monitoring Dashboard',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
-                ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text(
+                    'Utility Monitoring Dashboard',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  SizedBox(width: 5), // Jarak antara teks dan gambar
+                  Image.asset(
+                    'assets/images/combiwhite.png', // Ganti dengan path gambar Anda
+                    height: 35, // Atur tinggi gambar sesuai kebutuhan
+                  ),
+                ],
               ),
             ),
           ),
-          _selectedIndex == 0 ? _buildHomeContent() : _buildHistoryContent(),
+          // Konten berdasarkan indeks yang dipilih
+          _selectedIndex == 0
+              ? _buildHomeContent()
+              : _selectedIndex == 1
+                  ? _buildHistoryContent()
+                  : _buildAlarmSwitchContent(),
 
+          // Bottom Navigation Bar
           Positioned(
             left: 0,
             right: 0,
@@ -193,8 +232,8 @@ class _HomePageState extends State<HomePage> {
                     icon: SvgPicture.asset(
                       'assets/images/homefull.svg',
                       color: _selectedIndex == 0
-                          ? Color(0xFFed4d9b)
-                          : Colors.black54, // Ubah warna saat dipilih
+                          ? Color(0xFF532F8F)
+                          : Colors.black54,
                       width: 20,
                       height: 20,
                     ),
@@ -204,22 +243,117 @@ class _HomePageState extends State<HomePage> {
                     icon: Icon(Icons.history_sharp, size: 26),
                     label: 'History',
                   ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.alarm, size: 26),
+                    label: 'Alarm',
+                  ),
                 ],
-                selectedItemColor: Color(0xFFed4d9b),
+                selectedItemColor: Color(0xFF532F8F),
                 unselectedItemColor: Colors.black54,
                 backgroundColor: Colors.transparent,
                 elevation: 0,
                 type: BottomNavigationBarType.fixed,
-                // selectedLabelStyle: TextStyle(
-                //   fontWeight: FontWeight.bold,
-                // ),
-                // unselectedLabelStyle: TextStyle(
-                //   fontWeight: FontWeight.w600,
-                // ),
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildAlarmSwitchContent() {
+    return Padding(
+      padding:
+          const EdgeInsets.only(top: 190.0, left: 16, right: 16, bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Notification Alarm Settings',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          Divider(
+            thickness: 2, // Ketebalan garis
+            color: Colors.black, // Warna garis
+            indent: 0, // Jarak dari tepi kiri
+            endIndent: 150, // Jarak dari tepi kanan
+          ),
+          const SizedBox(height: 20),
+          _buildAlarmSwitch(
+            title: 'Boiler Notification',
+            value: _isBoilerAlarmEnabled,
+            onChanged: (value) {
+              setState(() {
+                _isBoilerAlarmEnabled = value;
+                _updateAlarmSettings('boiler', value);
+              });
+            },
+          ),
+          _buildAlarmSwitch(
+            title: 'OFDA Notification',
+            value: _isOfdaAlarmEnabled,
+            onChanged: (value) {
+              setState(() {
+                _isOfdaAlarmEnabled = value;
+                _updateAlarmSettings('ofda', value);
+              });
+            },
+          ),
+          _buildAlarmSwitch(
+            title: 'Oiless Notification',
+            value: _isOilessAlarmEnabled,
+            onChanged: (value) {
+              setState(() {
+                _isOilessAlarmEnabled = value;
+                _updateAlarmSettings('oiless', value);
+              });
+            },
+          ),
+          _buildAlarmSwitch(
+            title: 'Vent Filter Notification',
+            value: _isVentFilterAlarmEnabled,
+            onChanged: (value) {
+              setState(() {
+                _isVentFilterAlarmEnabled = value;
+                _updateAlarmSettings('vent_filter', value);
+              });
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAlarmSwitch({
+    required String title,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return Card(
+      elevation: 4, // Bayangan kotak
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(32), // Sudut yang membulat
+      ),
+      color: const Color.fromARGB(255, 255, 255, 255),
+
+      margin: const EdgeInsets.symmetric(vertical: 8), // Jarak antar switch
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              title,
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+            Switch(
+              value: value,
+              onChanged: onChanged,
+              activeColor: Color(0xFF6FCF97),
+              inactiveTrackColor: Color(0xFFFF6B6B),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -282,7 +416,7 @@ class _HomePageState extends State<HomePage> {
                     style: TextStyle(color: Colors.grey[600]),
                   ),
                   trailing: IconButton(
-                    icon: Icon(Icons.delete, color: const Color(0xFFed4d9b)),
+                    icon: Icon(Icons.delete, color: const Color(0xFF532F8F)),
                     onPressed: () {
                       // Menghapus alarm dari Hive menggunakan kunci yang tepat
                       box.delete(key);
@@ -356,7 +490,7 @@ class _HomePageState extends State<HomePage> {
                                                     'Boiler',
                                                     _boilerStatus,
                                                     'assets/images/boiler.png',
-                                                    140,
+                                                    125,
                                                     200), // Menambahkan assetImage
                                               ),
                                               SizedBox(
@@ -384,8 +518,8 @@ class _HomePageState extends State<HomePage> {
                                                     'Oiless',
                                                     _oilessStatus,
                                                     'assets/images/air-compressor.png',
-                                                    120,
-                                                    150), // Menambahkan assetImage
+                                                    115,
+                                                    140), // Menambahkan assetImage
                                               ),
                                             ],
                                           ),
@@ -519,7 +653,7 @@ class _HomePageState extends State<HomePage> {
                     effect: WormEffect(
                       dotHeight: 8.0,
                       dotWidth: 8.0,
-                      activeDotColor: Color(0xFFed4d9b),
+                      activeDotColor: Color(0xFF532F8F),
                       dotColor: Colors.grey.withOpacity(0.5),
                     ),
                   ),

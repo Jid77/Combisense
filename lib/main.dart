@@ -55,7 +55,7 @@ void main() async {
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) {
     print("Workmanager is running the task: $task"); // Tambahkan log ini
-    fetchDataFromFirebase();
+    // fetchDataFromFirebase();
     return Future.value(true);
   });
 }

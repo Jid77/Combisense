@@ -3,7 +3,9 @@
 
     <!-- Izin untuk menjalankan tugas background setelah boot -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
-    
+        <!-- Izin untuk menjalankan tugas background -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+
     <!-- Izin untuk mengirim notifikasi (for Android 13+) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <!--This permission allows your app to prevent the device from sleeping, which is necessary for reliable notification delivery.-->
@@ -65,10 +67,12 @@
 
         <!-- Service untuk menjalankan background task (WorkManager) -->
         <service
-            android:name="androidx.work.impl.background.systemjob.SystemJobService"
+            android:name="com.ekito.flutter_foreground_task.ForegroundService"
+            android:foregroundServiceType="location"
             android:permission="android.permission.BIND_JOB_SERVICE"
             android:exported="true"
             tools:replace="android:exported" /> <!-- Menyelesaikan konflik dengan library -->
+            <!-- android:name="androidx.work.impl.background.systemjob.SystemJobService"  -->
 
     </application>
 

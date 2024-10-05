@@ -1,11 +1,43 @@
 import 'package:firebase_database/firebase_database.dart';
 import 'package:hive/hive.dart';
 import 'dart:async';
+import 'package:fl_chart/fl_chart.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 // Inisialisasi notifikasi lokal (Harus diinisialisasi di main.dart sebelumnya)
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
+// Fungsi ini akan dijalankan sebagai background task
+Future<void> backgroundTaskHandler() async {
+  await fetchDataFromFirebase();
+}
+
+Future<void> sendAlarmNotification(String message) async {
+  print("Sending alarm notification: $message");
+  const AndroidNotificationDetails androidPlatformChannelSpecifics =
+      AndroidNotificationDetails(
+    'alarm_channel', // ID unik untuk channel
+    'Sensor Alarm', // Nama channel
+    channelDescription: 'Alarm when sensor data is out of range',
+    importance: Importance.max,
+    priority: Priority.high,
+    sound: RawResourceAndroidNotificationSound('classicalarm'),
+    ticker: 'Sensor Alarm',
+  );
+
+  const NotificationDetails platformChannelSpecifics =
+      NotificationDetails(android: androidPlatformChannelSpecifics);
+
+  // Menampilkan notifikasi
+  await flutterLocalNotificationsPlugin.show(
+    0, // ID notifikasi
+    'Sensor Alarm', // Judul notifikasi
+    message, // Pesan notifikasi
+    platformChannelSpecifics,
+    // payload: 'Sensor Alarm Payload', // Payload tambahan (opsional)
+  );
+}
 
 Future<void> fetchDataFromFirebase() async {
   try {
@@ -49,8 +81,23 @@ Future<void> checkAlarmCondition(double tk201, double tk202, double tk103,
   const double maxRange = 80.0;
 
   final box = Hive.box('alarmHistoryBox'); // Box untuk menyimpan riwayat alarm
+  final settingsBox = Hive.box('settingsBox'); // Box untuk menyimpan pengaturan
 
-  if (tk201 < minRange || tk201 > maxRange) {
+  // Ambil status alarm dari Hive
+  bool isTk201AlarmEnabled =
+      settingsBox.get('tk201AlarmEnabled', defaultValue: true);
+  bool isTk202AlarmEnabled =
+      settingsBox.get('tk202AlarmEnabled', defaultValue: true);
+  bool isTk103AlarmEnabled =
+      settingsBox.get('tk103AlarmEnabled', defaultValue: true);
+  bool isBoilerAlarmEnabled =
+      settingsBox.get('boilerAlarmEnabled', defaultValue: true);
+  bool isOfdaAlarmEnabled =
+      settingsBox.get('ofdaAlarmEnabled', defaultValue: true);
+  bool isOilessAlarmEnabled =
+      settingsBox.get('oilessAlarmEnabled', defaultValue: true);
+
+  if (isTk201AlarmEnabled && (tk201 < minRange || tk201 > maxRange)) {
     await sendAlarmNotification("Warning: tk201 out of range: $tk201");
     box.add({
       'timestamp': DateTime.now(),
@@ -58,7 +105,7 @@ Future<void> checkAlarmCondition(double tk201, double tk202, double tk103,
       'sensorValue': tk201,
     });
   }
-  if (tk202 < minRange || tk202 > maxRange) {
+  if (isTk202AlarmEnabled && (tk202 < minRange || tk202 > maxRange)) {
     await sendAlarmNotification("Warning: tk202 out of range: $tk202");
     box.add({
       'timestamp': DateTime.now(),
@@ -66,7 +113,7 @@ Future<void> checkAlarmCondition(double tk201, double tk202, double tk103,
       'sensorValue': tk202,
     });
   }
-  if (tk103 < minRange || tk103 > maxRange) {
+  if (isTk103AlarmEnabled && (tk103 < minRange || tk103 > maxRange)) {
     await sendAlarmNotification("Warning: tk103 out of range: $tk103");
     box.add({
       'timestamp': DateTime.now(),
@@ -75,7 +122,7 @@ Future<void> checkAlarmCondition(double tk201, double tk202, double tk103,
     });
   }
 
-  if (boiler == 0) {
+  if (isBoilerAlarmEnabled && boiler == 0) {
     await sendAlarmNotification("Warning: Boiler System Abnormal");
     box.add({
       'timestamp': DateTime.now(),
@@ -83,7 +130,7 @@ Future<void> checkAlarmCondition(double tk201, double tk202, double tk103,
       'sensorValue': boiler,
     });
   }
-  if (ofda == 0) {
+  if (isOfdaAlarmEnabled && ofda == 0) {
     await sendAlarmNotification("Warning: OFDA System Abnormal");
     box.add({
       'timestamp': DateTime.now(),
@@ -91,7 +138,7 @@ Future<void> checkAlarmCondition(double tk201, double tk202, double tk103,
       'sensorValue': ofda,
     });
   }
-  if (oiless == 0) {
+  if (isOilessAlarmEnabled && oiless == 0) {
     await sendAlarmNotification("Warning: Oiless System Abnormal");
     box.add({
       'timestamp': DateTime.now(),
@@ -99,55 +146,4 @@ Future<void> checkAlarmCondition(double tk201, double tk202, double tk103,
       'sensorValue': oiless,
     });
   }
-}
-
-Future<void> sendAlarmNotification(String message) async {
-  print("Sending alarm notification: $message");
-  const AndroidNotificationDetails androidPlatformChannelSpecifics =
-      AndroidNotificationDetails(
-    'alarm_channel', // ID unik untuk channel
-    'Sensor Alarm', // Nama channel
-    channelDescription: 'Alarm when sensor data is out of range',
-    importance: Importance.max,
-    priority: Priority.high,
-    sound: RawResourceAndroidNotificationSound('classicalarm'),
-    ticker: 'Sensor Alarm',
-  );
-
-  const NotificationDetails platformChannelSpecifics =
-      NotificationDetails(android: androidPlatformChannelSpecifics);
-
-  // Menampilkan notifikasi
-  await flutterLocalNotificationsPlugin.show(
-    0, // ID notifikasi
-    'Sensor Alarm', // Judul notifikasi
-    message, // Pesan notifikasi
-    platformChannelSpecifics,
-    // payload: 'Sensor Alarm Payload', // Payload tambahan (opsional)
-  );
-}
-
-Future<void> sendManualNotification() async {
-  const AndroidNotificationDetails androidPlatformChannelSpecifics =
-      AndroidNotificationDetails(
-    'manual_channel', // ID unik untuk channel manual
-    'Manual Notif', // Nama channel
-    channelDescription: 'Triggered manually from button',
-    importance: Importance.max,
-    priority: Priority.high,
-    sound: RawResourceAndroidNotificationSound('classicalarm'),
-    ticker: 'Manual Notification',
-  );
-
-  const NotificationDetails platformChannelSpecifics =
-      NotificationDetails(android: androidPlatformChannelSpecifics);
-
-  // Tampilkan notifikasi manual
-  await flutterLocalNotificationsPlugin.show(
-    0, // ID notifikasi
-    'Manual Trigger', // Judul notifikasi
-    'This notification is triggered manually by pressing a button.', // Pesan notifikasi
-    platformChannelSpecifics,
-    payload: 'Manual Trigger Payload',
-  );
 }
