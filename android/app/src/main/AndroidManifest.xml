@@ -5,7 +5,7 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
         <!-- Izin untuk menjalankan tugas background -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-
+    <uses-permission android:name="android.permission.INTERNET"/>
     <!-- Izin untuk mengirim notifikasi (for Android 13+) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <!--This permission allows your app to prevent the device from sleeping, which is necessary for reliable notification delivery.-->
@@ -47,6 +47,8 @@
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
                 <intent-filter>
+                 <action android:name="android.intent.action.MAIN"/>
+            <category android:name="android.intent.category.LAUNCHER"/>
                     <action android:name="android.intent.action.BOOT_COMPLETED"/>
                     <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
                     <action android:name="android.intent.action.QUICKBOOT_POWERON" />

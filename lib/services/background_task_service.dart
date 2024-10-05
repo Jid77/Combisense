@@ -9,9 +9,9 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
 // Fungsi ini akan dijalankan sebagai background task
-Future<void> backgroundTaskHandler() async {
-  await fetchDataFromFirebase();
-}
+// Future<void> backgroundTaskHandler() async {
+//   await fetchDataFromFirebase();
+// }
 
 Future<void> sendAlarmNotification(String message) async {
   print("Sending alarm notification: $message");
@@ -39,42 +39,45 @@ Future<void> sendAlarmNotification(String message) async {
   );
 }
 
-Future<void> fetchDataFromFirebase() async {
-  try {
-    final dataSnapshot =
-        await FirebaseDatabase.instance.ref('sensor_data').get();
-    if (dataSnapshot.value != null) {
-      final data = Map<dynamic, dynamic>.from(dataSnapshot.value as Map);
+class DataService {
+  final DatabaseReference _database = FirebaseDatabase.instance.ref();
 
-      // Parsing nilai dari Firebase
-      final tk201 = data['tk201']?.toDouble() ?? 0;
-      final tk202 = data['tk202']?.toDouble() ?? 0;
-      final tk103 = data['tk103']?.toDouble() ?? 0;
-      final boiler = data['boiler'] ?? 0;
-      final ofda = data['ofda'] ?? 0;
-      final oiless = data['oiless'] ?? 0;
-      final timestamp = DateTime.now();
+  Future<void> fetchData(
+    int index,
+    List<FlSpot> tk201Data,
+    List<FlSpot> tk202Data,
+    List<FlSpot> tk103Data,
+    List<String> timestamps,
+    DateFormat formatter,
+    Function(int, int, int, double, double, double)
+        updateCallback, // Pastikan ini sesuai
+  ) async {
+    try {
+      final dataSnapshot = await _database.child('sensor_data').get();
+      if (dataSnapshot.value != null) {
+        final data = Map<dynamic, dynamic>.from(dataSnapshot.value as Map);
+        final tk201 = data['tk201']?.toDouble() ?? 0;
+        final tk202 = data['tk202']?.toDouble() ?? 0;
+        final tk103 = data['tk103']?.toDouble() ?? 0;
+        final boiler = data['boiler'] ?? 0;
+        final ofda = data['ofda'] ?? 0;
+        final oiless = data['oiless'] ?? 0;
+        final timestamp = DateTime.now();
 
-      // Cek kondisi alarm, jika data sensor keluar dari range maka kirim notifikasi
-      await checkAlarmCondition(
-          tk201, tk202, tk103, boiler, ofda, oiless, timestamp);
-
-      // Simpan data ke Hive
-      final box = Hive.box('sensorDataBox');
-      int index = box.length ~/ 3;
-      box.put('tk201_${index + 1}', tk201);
-      box.put('tk202_${index + 1}', tk202);
-      box.put('tk103_${index + 1}', tk103);
-      box.put('timestamp_${index + 1}', timestamp.toIso8601String());
-      box.put('boiler', boiler);
-      box.put('ofda', ofda);
-      box.put('oiless', oiless);
+        await checkAlarmCondition(
+            tk201, tk202, tk103, boiler, ofda, oiless, timestamp);
+        // Panggil callback dengan data yang diterima
+        updateCallback(
+            boiler.toInt(), oiless.toInt(), ofda.toInt(), tk201, tk202, tk103);
+      }
+    } catch (e) {
+      print("Error fetching data from Firebase: $e");
     }
-  } catch (e) {
-    print("Error fetching data: $e");
   }
 }
 
+// await checkAlarmCondition(
+//     tk201, tk202, tk103, boiler, ofda, oiless, timestamp);
 Future<void> checkAlarmCondition(double tk201, double tk202, double tk103,
     int boiler, int ofda, int oiless, DateTime timestamp) async {
   const double minRange = 65.0;

@@ -15,17 +15,21 @@ final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
 
 class HomePage extends StatefulWidget {
+  const HomePage({super.key});
+
   @override
   _HomePageState createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
   final DatabaseReference _database = FirebaseDatabase.instance.ref();
-  List<FlSpot> _tk201Data = [];
-  List<FlSpot> _tk202Data = [];
-  List<FlSpot> _tk103Data = [];
+  // Deklarasikan _dataService sebagai variabel instance
+  final DataService _dataService = DataService();
+  final List<FlSpot> _tk201Data = [];
+  final List<FlSpot> _tk202Data = [];
+  final List<FlSpot> _tk103Data = [];
 
-  List<String> _timestamps = [];
+  final List<String> _timestamps = [];
   int _index = 0;
   late Timer _timer;
   late Box _sensorDataBox;
@@ -45,64 +49,95 @@ class _HomePageState extends State<HomePage> {
   bool _isOfdaAlarmEnabled = true;
   bool _isOilessAlarmEnabled = true;
   bool _isVentFilterAlarmEnabled = true;
+
   @override
   void initState() {
     super.initState();
+    print("initState called in HomePage"); // Debug point A
     _sensorDataBox = Hive.box('sensorDataBox');
     _alarmHistoryBox = Hive.box('alarmHistoryBox');
 
     _loadAlarmSettings();
     _loadDataFromHive();
+// Panggil fetchData dari DataService dan tambahkan callback untuk update state
+    _dataService.fetchData(
+      _index,
+      _tk201Data,
+      _tk202Data,
+      _tk103Data,
+      _timestamps,
+      formatter,
+      // Callback untuk update status boiler, oiless, ofda, dan data sensor
+      (boiler, oiless, ofda, tk201, tk202, tk103) {
+        print(
+            "Callback called: updating state with new data."); // Debug point 5
 
-    _timer = Timer.periodic(Duration(minutes: 1), (timer) {
-      _fetchData();
-    });
+        setState(() {
+          _boilerStatus = boiler as int;
+          _oilessStatus = oiless as int;
+          _ofdaStatus = ofda as int;
 
-    _fetchData();
+          _index++;
+          _tk201Data.add(FlSpot(_index.toDouble(), tk201));
+          _tk202Data.add(FlSpot(_index.toDouble(), tk202));
+          _tk103Data.add(FlSpot(_index.toDouble(), tk103));
+          _timestamps.add(formatter.format(DateTime.now()));
+
+          _isLoading = false;
+        });
+      },
+    );
   }
 
-  void _fetchData() async {
-    setState(() {
-      _isLoading = true;
-    });
+  // _timer = Timer.periodic(Duration(minutes: 1), (timer) {
+  //   _fetchData();
+  // });
 
-    final dataSnapshot = await _database.child('sensor_data').get();
-    if (dataSnapshot.value != null) {
-      final data = Map<dynamic, dynamic>.from(dataSnapshot.value as Map);
-      final tk201 = data['tk201']?.toDouble() ?? 0;
-      final tk202 = data['tk202']?.toDouble() ?? 0;
-      final tk103 = data['tk103']?.toDouble() ?? 0;
-      final boiler = data['boiler'] ?? 0;
-      final ofda = data['ofda'] ?? 0;
-      final oiless = data['oiless'] ?? 0;
-      final timestamp = DateTime.now();
-      // Cek kondisi alarm, jika data sensor keluar dari range maka kirim notifikasi
-      await checkAlarmCondition(
-          tk201, tk202, tk103, boiler, ofda, oiless, timestamp);
+  // _fetchData();
 
-      setState(() {
-        _index++;
-        _tk201Data.add(FlSpot(_index.toDouble(), tk201));
-        _tk202Data.add(FlSpot(_index.toDouble(), tk202));
-        _tk103Data.add(FlSpot(_index.toDouble(), tk103));
-        _timestamps.add(formatter.format(timestamp));
+  // void _fetchData() async {
+  //   // setState(() {
+  //   //   _isLoading = true;
+  //   // });
 
-        _boilerStatus = boiler;
-        _ofdaStatus = ofda;
-        _oilessStatus = oiless;
+  //   final dataSnapshot = await _database.child('sensor_data').get();
+  //   if (dataSnapshot.value != null) {
+  //     print("coba fecth data");
+  //     final data = Map<dynamic, dynamic>.from(dataSnapshot.value as Map);
+  //     final tk201 = data['tk201']?.toDouble() ?? 0;
+  //     final tk202 = data['tk202']?.toDouble() ?? 0;
+  //     final tk103 = data['tk103']?.toDouble() ?? 0;
+  //     final boiler = data['boiler'] ?? 0;
+  //     final ofda = data['ofda'] ?? 0;
+  //     final oiless = data['oiless'] ?? 0;
+  //     final timestamp = DateTime.now();
+  //     // Cek kondisi alarm, jika data sensor keluar dari range maka kirim notifikasi
+  //     await checkAlarmCondition(
+  //         tk201, tk202, tk103, boiler, ofda, oiless, timestamp);
 
-        _isLoading = false;
-      });
+  //     setState(() {
+  //       _index++;
+  //       _tk201Data.add(FlSpot(_index.toDouble(), tk201));
+  //       _tk202Data.add(FlSpot(_index.toDouble(), tk202));
+  //       _tk103Data.add(FlSpot(_index.toDouble(), tk103));
+  //       _timestamps.add(formatter.format(timestamp));
 
-      _sensorDataBox.put('tk201_$_index', tk201);
-      _sensorDataBox.put('tk202_$_index', tk202);
-      _sensorDataBox.put('tk103_$_index', tk103);
-      _sensorDataBox.put('timestamp_$_index', timestamp.toIso8601String());
-      _sensorDataBox.put('boiler', boiler);
-      _sensorDataBox.put('ofda', ofda);
-      _sensorDataBox.put('oiless', oiless);
-    }
-  }
+  //       _boilerStatus = boiler;
+  //       _ofdaStatus = ofda;
+  //       _oilessStatus = oiless;
+
+  //       _isLoading = false;
+  //     });
+
+  //     _sensorDataBox.put('tk201_$_index', tk201);
+  //     _sensorDataBox.put('tk202_$_index', tk202);
+  //     _sensorDataBox.put('tk103_$_index', tk103);
+  //     _sensorDataBox.put('timestamp_$_index', timestamp.toIso8601String());
+  //     _sensorDataBox.put('boiler', boiler);
+  //     _sensorDataBox.put('ofda', ofda);
+  //     _sensorDataBox.put('oiless', oiless);
+  //   }
+  // }
 
   void _loadDataFromHive() {
     for (int i = 1; i <= _sensorDataBox.length ~/ 3; i++) {
@@ -156,6 +191,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    print("Is loading: $_isLoading");
     return Scaffold(
       body: Stack(
         children: [
@@ -169,18 +205,18 @@ class _HomePageState extends State<HomePage> {
                   colors: [Color(0xFF532F8F), Color(0xFF532F8F)],
                 ),
               ),
-              child: Center(),
+              child: const Center(),
             ),
           ),
           // Konten utama
-          Positioned(
+          const Positioned(
             top: 100,
-            left: 0,
+            left: 10,
             right: 0,
             child: Center(
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
+                // mainAxisAlignment: MainAxisAlignment.center,
+                // crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Text(
                     'Utility Monitoring Dashboard',
@@ -190,7 +226,24 @@ class _HomePageState extends State<HomePage> {
                       color: Colors.white,
                     ),
                   ),
-                  SizedBox(width: 5), // Jarak antara teks dan gambar
+                  // SizedBox(width: 5), // Jarak antara teks dan gambar
+                  // Image.asset(
+                  //   'assets/images/combiwhite.png', // Ganti dengan path gambar Anda
+                  //   height: 35, // Atur tinggi gambar sesuai kebutuhan
+                  // ),
+                ],
+              ),
+            ),
+          ),
+          Positioned(
+            top: 94,
+            left: 345,
+            right: 0,
+            child: Center(
+              child: Row(
+                // mainAxisAlignment: MainAxisAlignment.center,
+                // crossAxisAlignment: CrossAxisAlignment.,
+                children: [
                   Image.asset(
                     'assets/images/combiwhite.png', // Ganti dengan path gambar Anda
                     height: 35, // Atur tinggi gambar sesuai kebutuhan
@@ -216,7 +269,7 @@ class _HomePageState extends State<HomePage> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(35),
-                boxShadow: [
+                boxShadow: const [
                   BoxShadow(
                     color: Colors.black26,
                     blurRadius: 10,
@@ -232,7 +285,7 @@ class _HomePageState extends State<HomePage> {
                     icon: SvgPicture.asset(
                       'assets/images/homefull.svg',
                       color: _selectedIndex == 0
-                          ? Color(0xFF532F8F)
+                          ? const Color(0xFF532F8F)
                           : Colors.black54,
                       width: 20,
                       height: 20,
@@ -243,12 +296,12 @@ class _HomePageState extends State<HomePage> {
                     icon: Icon(Icons.history_sharp, size: 26),
                     label: 'History',
                   ),
-                  BottomNavigationBarItem(
+                  const BottomNavigationBarItem(
                     icon: Icon(Icons.alarm, size: 26),
                     label: 'Alarm',
                   ),
                 ],
-                selectedItemColor: Color(0xFF532F8F),
+                selectedItemColor: const Color(0xFF532F8F),
                 unselectedItemColor: Colors.black54,
                 backgroundColor: Colors.transparent,
                 elevation: 0,
@@ -268,11 +321,11 @@ class _HomePageState extends State<HomePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          const Text(
             'Notification Alarm Settings',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
-          Divider(
+          const Divider(
             thickness: 2, // Ketebalan garis
             color: Colors.black, // Warna garis
             indent: 0, // Jarak dari tepi kiri
@@ -344,13 +397,13 @@ class _HomePageState extends State<HomePage> {
           children: [
             Text(
               title,
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
             Switch(
               value: value,
               onChanged: onChanged,
-              activeColor: Color(0xFF6FCF97),
-              inactiveTrackColor: Color(0xFFFF6B6B),
+              activeColor: const Color(0xFF6FCF97),
+              inactiveTrackColor: const Color(0xFFFF6B6B),
             ),
           ],
         ),
@@ -405,18 +458,18 @@ class _HomePageState extends State<HomePage> {
                   contentPadding: const EdgeInsets.all(16),
                   title: Text(
                     title,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 18,
-                      color: const Color.fromARGB(255, 0, 0, 0),
+                      color: Color.fromARGB(255, 0, 0, 0),
                     ),
                   ),
                   subtitle: Text(
-                    '$formattedTimestamp',
+                    formattedTimestamp,
                     style: TextStyle(color: Colors.grey[600]),
                   ),
                   trailing: IconButton(
-                    icon: Icon(Icons.delete, color: const Color(0xFF532F8F)),
+                    icon: const Icon(Icons.delete, color: Color(0xFF532F8F)),
                     onPressed: () {
                       // Menghapus alarm dari Hive menggunakan kunci yang tepat
                       box.delete(key);
@@ -433,7 +486,7 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildHomeContent() {
     return _isLoading
-        ? Center(
+        ? const Center(
             child:
                 CircularProgressIndicator(), // Display loading indicator when fetching data
           )
@@ -470,7 +523,8 @@ class _HomePageState extends State<HomePage> {
                                             children: [
                                               // Box untuk status Boiler
                                               Container(
-                                                padding: EdgeInsets.all(16.0),
+                                                padding:
+                                                    const EdgeInsets.all(16.0),
                                                 decoration: BoxDecoration(
                                                   color: Colors.white,
                                                   borderRadius:
@@ -482,7 +536,8 @@ class _HomePageState extends State<HomePage> {
                                                           .withOpacity(0.3),
                                                       spreadRadius: 2,
                                                       blurRadius: 8,
-                                                      offset: Offset(0, 3),
+                                                      offset:
+                                                          const Offset(0, 3),
                                                     ),
                                                   ],
                                                 ),
@@ -493,12 +548,13 @@ class _HomePageState extends State<HomePage> {
                                                     125,
                                                     200), // Menambahkan assetImage
                                               ),
-                                              SizedBox(
+                                              const SizedBox(
                                                   height:
                                                       36), // Spasi antar box
                                               // Box untuk status Oiless
                                               Container(
-                                                padding: EdgeInsets.all(16.0),
+                                                padding:
+                                                    const EdgeInsets.all(16.0),
                                                 decoration: BoxDecoration(
                                                   color: Colors.white,
                                                   borderRadius:
@@ -510,7 +566,8 @@ class _HomePageState extends State<HomePage> {
                                                           .withOpacity(0.3),
                                                       spreadRadius: 2,
                                                       blurRadius: 8,
-                                                      offset: Offset(0, 3),
+                                                      offset:
+                                                          const Offset(0, 3),
                                                     ),
                                                   ],
                                                 ),
@@ -543,9 +600,9 @@ class _HomePageState extends State<HomePage> {
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               Container(
-                                padding: EdgeInsets.symmetric(
+                                padding: const EdgeInsets.symmetric(
                                     vertical: 8.0, horizontal: 16.0),
-                                child: Column(
+                                child: const Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
@@ -569,11 +626,11 @@ class _HomePageState extends State<HomePage> {
                                   ],
                                 ),
                               ),
-                              SizedBox(height: 10),
+                              const SizedBox(height: 10),
 
                               // Container for Current Temperature display
                               Container(
-                                padding: EdgeInsets.all(16.0),
+                                padding: const EdgeInsets.all(16.0),
                                 decoration: BoxDecoration(
                                   color: Colors.white,
                                   borderRadius: BorderRadius.circular(12.0),
@@ -582,21 +639,21 @@ class _HomePageState extends State<HomePage> {
                                       color: Colors.grey.withOpacity(0.3),
                                       spreadRadius: 2,
                                       blurRadius: 8,
-                                      offset: Offset(0, 3),
+                                      offset: const Offset(0, 3),
                                     ),
                                   ],
                                 ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
+                                    const Text(
                                       "Current Temperature",
                                       style: TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
-                                    SizedBox(height: 16),
+                                    const SizedBox(height: 16),
                                     Row(
                                       mainAxisAlignment:
                                           MainAxisAlignment.spaceAround,
@@ -624,17 +681,17 @@ class _HomePageState extends State<HomePage> {
                                   ],
                                 ),
                               ),
-                              SizedBox(height: 16),
+                              const SizedBox(height: 16),
 
                               // Title and Chart
-                              Text(
+                              const Text(
                                 "Graphic Temperature",
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              SizedBox(height: 16),
+                              const SizedBox(height: 16),
                               _buildChart(),
                             ],
                           ),
@@ -653,7 +710,7 @@ class _HomePageState extends State<HomePage> {
                     effect: WormEffect(
                       dotHeight: 8.0,
                       dotWidth: 8.0,
-                      activeDotColor: Color(0xFF532F8F),
+                      activeDotColor: const Color(0xFF532F8F),
                       dotColor: Colors.grey.withOpacity(0.5),
                     ),
                   ),
@@ -668,7 +725,7 @@ class _HomePageState extends State<HomePage> {
     return Container(
       width: 110, // Increased width for better readability
       height: 200,
-      padding: EdgeInsets.all(10.0),
+      padding: const EdgeInsets.all(10.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -678,7 +735,7 @@ class _HomePageState extends State<HomePage> {
             width: imageWidth, // Ukuran gambar boiler
             height: imageHeight,
           ),
-          SizedBox(width: 10), // Jarak antara gambar dan teks
+          const SizedBox(width: 10), // Jarak antara gambar dan teks
           // Teks di sebelah kanan
           Expanded(
             child: Column(
@@ -689,25 +746,27 @@ class _HomePageState extends State<HomePage> {
               children: [
                 Text(
                   label,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w500,
                     color: Colors.black87,
                   ),
                 ),
-                SizedBox(height: 10),
+                const SizedBox(height: 10),
                 Container(
-                  padding: EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
                   decoration: BoxDecoration(
                     color: status == 1
-                        ? Color(0xFF6FCF97) // Warna hijau untuk status normal
-                        : Color(
+                        ? const Color(
+                            0xFF6FCF97) // Warna hijau untuk status normal
+                        : const Color(
                             0xFFFF6B6B), // Warna merah untuk status abnormal
                     borderRadius: BorderRadius.circular(8.0),
                   ),
                   child: Text(
                     status == 1 ? "Normal" : "Abnormal", // Teks status
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
@@ -725,7 +784,7 @@ class _HomePageState extends State<HomePage> {
   Widget _buildChart() {
     // Menghitung waktu satu jam yang lalu
     DateTime now = DateTime.now();
-    DateTime oneHourAgo = now.subtract(Duration(hours: 1));
+    DateTime oneHourAgo = now.subtract(const Duration(hours: 1));
 
     // Filter data berdasarkan waktu satu jam terakhir
     List<FlSpot> filteredTk201Data = _tk201Data
@@ -767,7 +826,7 @@ class _HomePageState extends State<HomePage> {
             color: Colors.grey.withOpacity(0.3),
             spreadRadius: 2,
             blurRadius: 8,
-            offset: Offset(0, 3),
+            offset: const Offset(0, 3),
           ),
         ],
       ),
@@ -808,7 +867,8 @@ class _HomePageState extends State<HomePage> {
                           padding: const EdgeInsets.only(top: 15),
                           child: Text(
                             "${timestamp.hour}:${timestamp.minute}",
-                            style: TextStyle(color: Colors.black, fontSize: 10),
+                            style: const TextStyle(
+                                color: Colors.black, fontSize: 10),
                           ),
                         );
                       },
@@ -824,16 +884,17 @@ class _HomePageState extends State<HomePage> {
                               top: 20, left: 10, bottom: 20),
                           child: Text(
                             value.toInt().toString(),
-                            style: TextStyle(color: Colors.black, fontSize: 12),
+                            style: const TextStyle(
+                                color: Colors.black, fontSize: 12),
                           ),
                         );
                       },
                     ),
                   ),
-                  topTitles: AxisTitles(
+                  topTitles: const AxisTitles(
                     sideTitles: SideTitles(showTitles: false),
                   ),
-                  rightTitles: AxisTitles(
+                  rightTitles: const AxisTitles(
                     sideTitles: SideTitles(showTitles: false),
                   ),
                 ),
@@ -851,39 +912,39 @@ class _HomePageState extends State<HomePage> {
                     isCurved: true,
                     curveSmoothness: 1.0,
                     barWidth: 2,
-                    color: Color(0xFFed4d9b),
-                    dotData: FlDotData(show: false),
+                    color: const Color(0xFFed4d9b),
+                    dotData: const FlDotData(show: false),
                   ),
                   LineChartBarData(
                     spots: filteredTk202Data,
                     isCurved: true,
                     curveSmoothness: 1.0,
                     barWidth: 2,
-                    color: Color(0xFF9C27B0),
-                    dotData: FlDotData(show: false),
+                    color: const Color(0xFF9C27B0),
+                    dotData: const FlDotData(show: false),
                   ),
                   LineChartBarData(
                     spots: filteredTk103Data,
                     isCurved: true,
                     curveSmoothness: 1.0,
                     barWidth: 2,
-                    color: Color(0xFFC6849B),
-                    dotData: FlDotData(show: false),
+                    color: const Color(0xFFC6849B),
+                    dotData: const FlDotData(show: false),
                   ),
                 ],
               ),
             ),
           ),
-          SizedBox(height: 16),
+          const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _buildLegend(color: Color(0xFFed4d9b), label: 'Tk201'),
-              _buildLegend(color: Color(0xFF9C27B0), label: 'Tk202'),
-              _buildLegend(color: Color(0xFFC6849B), label: 'Tk103'),
+              _buildLegend(color: const Color(0xFFed4d9b), label: 'Tk201'),
+              _buildLegend(color: const Color(0xFF9C27B0), label: 'Tk202'),
+              _buildLegend(color: const Color(0xFFC6849B), label: 'Tk103'),
             ],
           ),
-          SizedBox(height: 16),
+          const SizedBox(height: 16),
         ],
       ),
     );
@@ -897,11 +958,11 @@ class _HomePageState extends State<HomePage> {
         children: [
           Text(
             label,
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
           Text(
             value.toStringAsFixed(2),
-            style: TextStyle(fontSize: 16),
+            style: const TextStyle(fontSize: 16),
           ),
         ],
       ),
@@ -915,21 +976,21 @@ class _HomePageState extends State<HomePage> {
           width: 80,
           height: 80,
           decoration: BoxDecoration(
-            color: Color(0xFF8547b0), // Ganti warna sesuai kebutuhan
+            color: const Color(0xFF8547b0), // Ganti warna sesuai kebutuhan
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
                 color: Colors.grey.withOpacity(0.3),
                 spreadRadius: 2,
                 blurRadius: 6,
-                offset: Offset(0, 3),
+                offset: const Offset(0, 3),
               ),
             ],
           ),
           child: Center(
             child: Text(
               '${value.toInt()}°C',
-              style: TextStyle(
+              style: const TextStyle(
                 color: Colors.white,
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -937,10 +998,10 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
         ),
-        SizedBox(height: 8),
+        const SizedBox(height: 8),
         Text(
           label,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w500,
           ),
@@ -960,7 +1021,7 @@ class _HomePageState extends State<HomePage> {
             shape: BoxShape.circle,
           ),
         ),
-        SizedBox(width: 8),
+        const SizedBox(width: 8),
         Text(label),
       ],
     );
