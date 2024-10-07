@@ -48,12 +48,14 @@ class _HomePageState extends State<HomePage> {
   bool _isBoilerAlarmEnabled = true;
   bool _isOfdaAlarmEnabled = true;
   bool _isOilessAlarmEnabled = true;
+  bool isTk201AlarmEnabled = true;
+  bool isTk202AlarmEnabled = true;
+  bool isTk103AlarmEnabled = true;
   bool _isVentFilterAlarmEnabled = true;
 
   @override
   void initState() {
     super.initState();
-    print("initState called in HomePage"); // Debug point A
     _sensorDataBox = Hive.box('sensorDataBox');
     _alarmHistoryBox = Hive.box('alarmHistoryBox');
 
@@ -69,8 +71,8 @@ class _HomePageState extends State<HomePage> {
       formatter,
       // Callback untuk update status boiler, oiless, ofda, dan data sensor
       (boiler, oiless, ofda, tk201, tk202, tk103) {
-        print(
-            "Callback called: updating state with new data."); // Debug point 5
+        // print(
+        //     "Callback called: updating state with new data."); // Debug point 5
 
         setState(() {
           _boilerStatus = boiler as int;
@@ -88,56 +90,6 @@ class _HomePageState extends State<HomePage> {
       },
     );
   }
-
-  // _timer = Timer.periodic(Duration(minutes: 1), (timer) {
-  //   _fetchData();
-  // });
-
-  // _fetchData();
-
-  // void _fetchData() async {
-  //   // setState(() {
-  //   //   _isLoading = true;
-  //   // });
-
-  //   final dataSnapshot = await _database.child('sensor_data').get();
-  //   if (dataSnapshot.value != null) {
-  //     print("coba fecth data");
-  //     final data = Map<dynamic, dynamic>.from(dataSnapshot.value as Map);
-  //     final tk201 = data['tk201']?.toDouble() ?? 0;
-  //     final tk202 = data['tk202']?.toDouble() ?? 0;
-  //     final tk103 = data['tk103']?.toDouble() ?? 0;
-  //     final boiler = data['boiler'] ?? 0;
-  //     final ofda = data['ofda'] ?? 0;
-  //     final oiless = data['oiless'] ?? 0;
-  //     final timestamp = DateTime.now();
-  //     // Cek kondisi alarm, jika data sensor keluar dari range maka kirim notifikasi
-  //     await checkAlarmCondition(
-  //         tk201, tk202, tk103, boiler, ofda, oiless, timestamp);
-
-  //     setState(() {
-  //       _index++;
-  //       _tk201Data.add(FlSpot(_index.toDouble(), tk201));
-  //       _tk202Data.add(FlSpot(_index.toDouble(), tk202));
-  //       _tk103Data.add(FlSpot(_index.toDouble(), tk103));
-  //       _timestamps.add(formatter.format(timestamp));
-
-  //       _boilerStatus = boiler;
-  //       _ofdaStatus = ofda;
-  //       _oilessStatus = oiless;
-
-  //       _isLoading = false;
-  //     });
-
-  //     _sensorDataBox.put('tk201_$_index', tk201);
-  //     _sensorDataBox.put('tk202_$_index', tk202);
-  //     _sensorDataBox.put('tk103_$_index', tk103);
-  //     _sensorDataBox.put('timestamp_$_index', timestamp.toIso8601String());
-  //     _sensorDataBox.put('boiler', boiler);
-  //     _sensorDataBox.put('ofda', ofda);
-  //     _sensorDataBox.put('oiless', oiless);
-  //   }
-  // }
 
   void _loadDataFromHive() {
     for (int i = 1; i <= _sensorDataBox.length ~/ 3; i++) {
@@ -169,6 +121,7 @@ class _HomePageState extends State<HomePage> {
         settingsBox.get('oilessAlarmEnabled', defaultValue: true);
     _isVentFilterAlarmEnabled =
         settingsBox.get('ventFilterAlarmEnabled', defaultValue: true);
+    print("Alarm  Boiler HOMEPAGE:$_isBoilerAlarmEnabled");
   }
 
   Future<void> _updateAlarmSettings(String sensor, bool isEnabled) async {
@@ -191,7 +144,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    print("Is loading: $_isLoading");
+    // print("Is loading: $_isLoading");
     return Scaffold(
       body: Stack(
         children: [
@@ -339,6 +292,7 @@ class _HomePageState extends State<HomePage> {
               setState(() {
                 _isBoilerAlarmEnabled = value;
                 _updateAlarmSettings('boiler', value);
+                print("Status Alarm Boiler $value");
               });
             },
           ),

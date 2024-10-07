@@ -1,18 +1,17 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Izin untuk menjalankan tugas background setelah boot -->
+    <!-- Permissions -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
-        <!-- Izin untuk menjalankan tugas background -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+
     <uses-permission android:name="android.permission.INTERNET"/>
-    <!-- Izin untuk mengirim notifikasi (for Android 13+) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
-    <!--This permission allows your app to prevent the device from sleeping, which is necessary for reliable notification delivery.-->
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
-    <!-- This permission enables your app to vibrate the device when a notification is received. -->
     <uses-permission android:name="android.permission.VIBRATE"/>
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+
     <application
         android:label="Combisense"
         android:name="${applicationName}" 
@@ -21,7 +20,7 @@
         android:allowBackup="true"
         android:theme="@style/LaunchTheme">
 
-        <!-- Aktivitas utama aplikasi -->
+        <!-- Main activity -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -44,41 +43,36 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
-        <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
-        <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
-                <intent-filter>
-                 <action android:name="android.intent.action.MAIN"/>
-            <category android:name="android.intent.category.LAUNCHER"/>
-                    <action android:name="android.intent.action.BOOT_COMPLETED"/>
-                    <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
-                    <action android:name="android.intent.action.QUICKBOOT_POWERON" />
-                    <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>
-                </intent-filter>
-            </receiver>
-        <!-- Izin untuk notifikasi lokal -->
+
+        <!-- Local notifications -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:value="sensor_alarm_channel" /> <!-- Sesuaikan dengan ID channel notifikasi Anda -->
+            android:value="sensor_alarm_channel" /> 
 
-        <!-- Receiver untuk menangani event setelah perangkat di-reboot -->
+        <!-- Receiver for handling reboot -->
         <receiver
-            android:name="androidx.work.impl.background.systemalarm.RescheduleReceiver"
-            android:enabled="true"
             android:exported="false"
-            tools:replace="android:enabled" /> <!-- Menyelesaikan konflik dengan library -->
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
+        <receiver
+            android:exported="false"
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>
+            </intent-filter>
+        </receiver>
 
-        <!-- Service untuk menjalankan background task (WorkManager) -->
+        <!-- Service for running background tasks -->
         <service
-            android:name="com.ekito.flutter_foreground_task.ForegroundService"
-            android:foregroundServiceType="location"
-            android:permission="android.permission.BIND_JOB_SERVICE"
-            android:exported="true"
-            tools:replace="android:exported" /> <!-- Menyelesaikan konflik dengan library -->
-            <!-- android:name="androidx.work.impl.background.systemjob.SystemJobService"  -->
-
+            android:name="id.flutter.flutter_background_service.BackgroundService"
+            android:foregroundServiceType="dataSync"  
+            android:exported="true" />
+            
     </application>
 
-    <!-- Untuk memproses teks jika diperlukan -->
+    <!-- Queries for processing text if necessary -->
     <queries>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
