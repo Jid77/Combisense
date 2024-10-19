@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
 import 'dart:async';
 import 'package:hive/hive.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -10,27 +11,34 @@ import 'package:aplikasitest1/services/background_task_service.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:aplikasitest1/widgets/background_wave.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  const HomePage({Key? key}) : super(key: key);
 
   @override
   _HomePageState createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
+  static final GlobalKey<_HomePageState> _key = GlobalKey<_HomePageState>();
+
   final DatabaseReference _database = FirebaseDatabase.instance.ref();
   // Deklarasikan _dataService sebagai variabel instance
   final DataService _dataService = DataService();
+
   final List<FlSpot> _tk201Data = [];
   final List<FlSpot> _tk202Data = [];
   final List<FlSpot> _tk103Data = [];
-
+  int _boilerStatus = 0;
+  int _ofdaStatus = 0;
+  int _oilessStatus = 0;
   final List<String> _timestamps = [];
   int _index = 0;
+
   late Timer _timer;
   late Box _sensorDataBox;
   late Box _alarmHistoryBox;
@@ -38,95 +46,122 @@ class _HomePageState extends State<HomePage> {
 
   final PageController _pageController = PageController();
 
-  int _boilerStatus = 0;
-  int _ofdaStatus = 0;
-  int _oilessStatus = 0;
-
   bool _isLoading = true;
   int _selectedIndex = 0;
+
+  // data
+  int boiler = 0;
+  int oiless = 0;
+  int ofda = 0;
+  double tk201 = 0;
+  double tk202 = 0;
+  double tk103 = 0;
+
   // State untuk mengontrol status alarm
-  bool _isBoilerAlarmEnabled = true;
-  bool _isOfdaAlarmEnabled = true;
-  bool _isOilessAlarmEnabled = true;
-  bool isTk201AlarmEnabled = true;
-  bool isTk202AlarmEnabled = true;
-  bool isTk103AlarmEnabled = true;
-  bool _isVentFilterAlarmEnabled = true;
+  bool isTask1On = false;
+  bool isTask2On = false;
+  bool isTask3On = false;
+  bool isTask4On = false;
+  bool isTask5On = false;
+  bool isTask6On = false;
 
   @override
   void initState() {
     super.initState();
-    _sensorDataBox = Hive.box('sensorDataBox');
+    // _sensorDataBox = Hive.box('sensorDataBox');
     _alarmHistoryBox = Hive.box('alarmHistoryBox');
+    _initHive(); // Inisialisasi Hive sebelum digunakan
+    _loadSwitchState();
+    _startListening();
 
-    _loadAlarmSettings();
-    _loadDataFromHive();
-// Panggil fetchData dari DataService dan tambahkan callback untuk update state
-    _dataService.fetchData(
-      _index,
-      _tk201Data,
-      _tk202Data,
-      _tk103Data,
-      _timestamps,
-      formatter,
-      // Callback untuk update status boiler, oiless, ofda, dan data sensor
-      (boiler, oiless, ofda, tk201, tk202, tk103) {
-        // print(
-        //     "Callback called: updating state with new data."); // Debug point 5
+    // Timer.periodic(const Duration(seconds: 27), (timer) {
+    //   // _loadDataFromHive();
+    //   // print("Isi Hive periodic: ${_sensorDataBox.toMap()}");
+    // });
+    _isLoading = false;
+  }
 
+  Future<void> _initHive() async {
+    await Hive.openBox(
+        'sensorDataBox'); // Buka Hive Box bernama 'sensorDataBox'
+  }
+
+  Future<void> _loadData() async {
+    await _dataService.fetchData(
+      0,
+      [],
+      [],
+      [],
+      [],
+      DateFormat('yyyy-MM-dd HH:mm:ss'),
+      (newBoiler, newOiless, newOfda, newTk201, newTk202, newTk103) {
         setState(() {
-          _boilerStatus = boiler as int;
-          _oilessStatus = oiless as int;
-          _ofdaStatus = ofda as int;
-
-          _index++;
-          _tk201Data.add(FlSpot(_index.toDouble(), tk201));
-          _tk202Data.add(FlSpot(_index.toDouble(), tk202));
-          _tk103Data.add(FlSpot(_index.toDouble(), tk103));
-          _timestamps.add(formatter.format(DateTime.now()));
-
-          _isLoading = false;
+          boiler = newBoiler;
+          oiless = newOiless;
+          ofda = newOfda;
+          tk201 = newTk201;
+          tk202 = newTk202;
+          tk103 = newTk103;
         });
       },
     );
   }
 
-  void _loadDataFromHive() {
-    for (int i = 1; i <= _sensorDataBox.length ~/ 3; i++) {
-      double? temp201 = _sensorDataBox.get('tk201_$i');
-      double? temp202 = _sensorDataBox.get('tk202_$i');
-      double? temp103 = _sensorDataBox.get('tk103_$i');
+  void _startListening() {
+    _database.child('sensor_data').onValue.listen((event) {
+      final data = event.snapshot.value as Map<dynamic, dynamic>;
 
-      String? time = _sensorDataBox.get('timestamp_$i');
-      if (temp201 != null &&
-          temp202 != null &&
-          temp103 != null &&
-          time != null) {
-        _tk201Data.add(FlSpot(i.toDouble(), temp201));
-        _tk202Data.add(FlSpot(i.toDouble(), temp202));
-        _tk103Data.add(FlSpot(i.toDouble(), temp103));
-        _timestamps.add(formatter.format(DateTime.parse(time)));
-      }
-    }
-    _index = _sensorDataBox.length ~/ 3;
+      // Ambil data terbaru
+      setState(() {
+        boiler = data['boiler'] ?? 0;
+        oiless = data['oiless'] ?? 0;
+        ofda = data['ofda'] ?? 0;
+        tk201 = (data['tk201']?.toDouble() ?? 0);
+        tk202 = (data['tk202']?.toDouble() ?? 0);
+        tk103 = (data['tk103']?.toDouble() ?? 0);
+      });
+
+      // Simpan data ke Hive
+      _saveDataToHive(data);
+    });
   }
 
-  void _loadAlarmSettings() {
-    final settingsBox = Hive.box('settingsBox');
-    _isBoilerAlarmEnabled =
-        settingsBox.get('boilerAlarmEnabled', defaultValue: true);
-    _isOfdaAlarmEnabled =
-        settingsBox.get('ofdaAlarmEnabled', defaultValue: true);
-    _isOilessAlarmEnabled =
-        settingsBox.get('oilessAlarmEnabled', defaultValue: true);
-    _isVentFilterAlarmEnabled =
-        settingsBox.get('ventFilterAlarmEnabled', defaultValue: true);
-    print("Alarm  Boiler HOMEPAGE:$_isBoilerAlarmEnabled");
+  Future<void> _saveDataToHive(Map<dynamic, dynamic> data) async {
+    final sensorDataBox = await Hive.box('sensorDataBox');
+    List<dynamic> sensorDataList =
+        sensorDataBox.get('sensorDataList', defaultValue: []);
+    final sensorData = {
+      'tk201': data['tk201'],
+      'tk202': data['tk202'],
+      'tk103': data['tk103'],
+      'timestamp': DateTime.now().toIso8601String(),
+    };
+    sensorDataList.add(sensorData); // Append data baru ke dalam list
+    await sensorDataBox.put(
+        'sensorDataList', sensorDataList); // Simpan list baru
   }
 
-  Future<void> _updateAlarmSettings(String sensor, bool isEnabled) async {
-    final settingsBox = Hive.box('settingsBox');
-    await settingsBox.put('${sensor}AlarmEnabled', isEnabled);
+  Future<void> _loadSwitchState() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    setState(() {
+      isTask1On = prefs.getBool("task1") ?? false;
+      isTask2On = prefs.getBool("task2") ?? false;
+      isTask3On = prefs.getBool("task3") ?? false;
+      isTask4On = prefs.getBool("task4") ?? false;
+      isTask5On = prefs.getBool("task5") ?? false;
+      isTask6On = prefs.getBool("task6") ?? false;
+    });
+  }
+
+  void updateServiceData() {
+    FlutterBackgroundService().invoke("updateData", {
+      "task1": isTask1On,
+      "task2": isTask2On,
+      "task3": isTask3On,
+      "task4": isTask4On,
+      "task5": isTask5On,
+      "task6": isTask6On,
+    });
   }
 
   void _onBottomNavTapped(int index) {
@@ -144,7 +179,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    // print("Is loading: $_isLoading");
+    print("Is loading: $_isLoading");
     return Scaffold(
       body: Stack(
         children: [
@@ -284,45 +319,64 @@ class _HomePageState extends State<HomePage> {
             indent: 0, // Jarak dari tepi kiri
             endIndent: 150, // Jarak dari tepi kanan
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 5),
           _buildAlarmSwitch(
             title: 'Boiler Notification',
-            value: _isBoilerAlarmEnabled,
+            value: isTask1On,
             onChanged: (value) {
               setState(() {
-                _isBoilerAlarmEnabled = value;
-                _updateAlarmSettings('boiler', value);
-                print("Status Alarm Boiler $value");
+                isTask1On = value;
+                updateServiceData(); // Update data ke background service
               });
             },
           ),
           _buildAlarmSwitch(
             title: 'OFDA Notification',
-            value: _isOfdaAlarmEnabled,
+            value: isTask2On,
             onChanged: (value) {
               setState(() {
-                _isOfdaAlarmEnabled = value;
-                _updateAlarmSettings('ofda', value);
+                isTask2On = value;
+                updateServiceData(); // Update data ke background service
               });
             },
           ),
           _buildAlarmSwitch(
             title: 'Oiless Notification',
-            value: _isOilessAlarmEnabled,
+            value: isTask3On,
             onChanged: (value) {
               setState(() {
-                _isOilessAlarmEnabled = value;
-                _updateAlarmSettings('oiless', value);
+                isTask3On = value;
+                updateServiceData(); // Update data ke background service
               });
             },
           ),
           _buildAlarmSwitch(
-            title: 'Vent Filter Notification',
-            value: _isVentFilterAlarmEnabled,
+            title: 'Vent Filter Tk 201 ',
+            value: isTask4On,
             onChanged: (value) {
               setState(() {
-                _isVentFilterAlarmEnabled = value;
-                _updateAlarmSettings('vent_filter', value);
+                isTask4On = value;
+                updateServiceData(); // Update data ke background service
+              });
+            },
+          ),
+          _buildAlarmSwitch(
+            title: 'Vent Filter Tk 202 ',
+            value: isTask5On,
+            onChanged: (value) {
+              setState(() {
+                isTask5On = value;
+                updateServiceData(); // Update data ke background service
+              });
+            },
+          ),
+          _buildAlarmSwitch(
+            title: 'Vent Filter Tk103 ',
+            value: isTask6On,
+            onChanged: (value) {
+              setState(() {
+                isTask6On = value;
+                updateServiceData(); // Update data ke background service
               });
             },
           ),
@@ -356,8 +410,13 @@ class _HomePageState extends State<HomePage> {
             Switch(
               value: value,
               onChanged: onChanged,
-              activeColor: const Color(0xFF6FCF97),
+              // activeColor: const Color(0xFF6FCF97),
+              activeColor: const Color(0xFF532F8F),
               inactiveTrackColor: const Color(0xFFFF6B6B),
+              inactiveThumbColor: const Color.fromARGB(
+                  255, 219, 6, 6), // Warna dot saat inactive
+              materialTapTargetSize: MaterialTapTargetSize
+                  .shrinkWrap, // Opsional, agar switch lebih kecil
             ),
           ],
         ),
@@ -497,7 +556,7 @@ class _HomePageState extends State<HomePage> {
                                                 ),
                                                 child: _buildStatusWidget(
                                                     'Boiler',
-                                                    _boilerStatus,
+                                                    boiler,
                                                     'assets/images/boiler.png',
                                                     125,
                                                     200), // Menambahkan assetImage
@@ -527,7 +586,7 @@ class _HomePageState extends State<HomePage> {
                                                 ),
                                                 child: _buildStatusWidget(
                                                     'Oiless',
-                                                    _oilessStatus,
+                                                    oiless,
                                                     'assets/images/air-compressor.png',
                                                     115,
                                                     140), // Menambahkan assetImage
@@ -612,24 +671,9 @@ class _HomePageState extends State<HomePage> {
                                       mainAxisAlignment:
                                           MainAxisAlignment.spaceAround,
                                       children: [
-                                        _buildCircularValue(
-                                          'Tk201',
-                                          _tk201Data.isNotEmpty
-                                              ? _tk201Data.last.y
-                                              : 0,
-                                        ),
-                                        _buildCircularValue(
-                                          'Tk202',
-                                          _tk202Data.isNotEmpty
-                                              ? _tk202Data.last.y
-                                              : 0,
-                                        ),
-                                        _buildCircularValue(
-                                          'Tk103',
-                                          _tk103Data.isNotEmpty
-                                              ? _tk103Data.last.y
-                                              : 0,
-                                        ),
+                                        _buildCircularValue('Tk201', tk201),
+                                        _buildCircularValue('Tk202', tk202),
+                                        _buildCircularValue('Tk103', tk103),
                                       ],
                                     ),
                                   ],
@@ -646,11 +690,12 @@ class _HomePageState extends State<HomePage> {
                                 ),
                               ),
                               const SizedBox(height: 16),
-                              _buildChart(),
+                              _buildChartVentFilter(),
                             ],
                           ),
                         ),
                       )
+                      // Halaman Ketigaa: PWG
                     ],
                   ),
                 ),
@@ -735,172 +780,195 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildChart() {
-    // Menghitung waktu satu jam yang lalu
-    DateTime now = DateTime.now();
-    DateTime oneHourAgo = now.subtract(const Duration(hours: 1));
+// Widget untuk menampilkan grafik
+  Widget _buildChartVentFilter() {
+    return ValueListenableBuilder(
+      valueListenable: Hive.box('sensorDataBox').listenable(),
+      builder: (context, Box box, _) {
+        if (!box.containsKey('sensorDataList')) {
+          return Center(child: Text("No sensor data available"));
+        }
 
-    // Filter data berdasarkan waktu satu jam terakhir
-    List<FlSpot> filteredTk201Data = _tk201Data
-        .where((spot) => DateTime.fromMillisecondsSinceEpoch(spot.x.toInt())
-            .isAfter(oneHourAgo))
-        .toList();
+        final sensorDataList = box.get('sensorDataList') as List;
 
-    List<FlSpot> filteredTk202Data = _tk202Data
-        .where((spot) => DateTime.fromMillisecondsSinceEpoch(spot.x.toInt())
-            .isAfter(oneHourAgo))
-        .toList();
+        // // Clear previous data
+        _tk201Data.clear();
+        _tk202Data.clear();
+        _tk103Data.clear();
 
-    List<FlSpot> filteredTk103Data = _tk103Data
-        .where((spot) => DateTime.fromMillisecondsSinceEpoch(spot.x.toInt())
-            .isAfter(oneHourAgo))
-        .toList();
+        // Tentukan rentang X untuk menampilkan 10 data terbaru
+        int range = 15;
+        int totalDataLength = sensorDataList.length;
+        int start = (totalDataLength > range) ? totalDataLength - range : 0;
+        double minX = 0;
+        double maxX =
+            (totalDataLength > range) ? range - 1 : totalDataLength - 1;
 
-    // Menentukan maxX dan minX
-    double maxX = filteredTk201Data.isNotEmpty
-        ? filteredTk201Data.last.x
-        : 50; // Set default jika tidak ada data
-    double minX = filteredTk201Data.isNotEmpty
-        ? filteredTk201Data.first.x
-        : 0; // Set minX ke 0 jika tidak ada data
+        List<String> timeLabels = [];
+        // Batasan untuk rentang Y
+        double minY = 60;
+        double maxY = 85;
 
-    // Jika data kurang dari satu jam, reset minX dan maxX
-    if (filteredTk201Data.isEmpty) {
-      maxX = 50; // Atur maxX ke nilai default
-      minX = 0; // Mulai dari 0
-    }
+        // Loop dari data terbaru ke terlama, mulai dari index start
+        for (int i = start; i < totalDataLength; i++) {
+          final sensorData = sensorDataList[i];
 
-    return Container(
-      height: 300, // Tinggi kontainer grafik
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.3),
-            spreadRadius: 2,
-            blurRadius: 8,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Expanded(
-            flex: 8,
-            child: LineChart(
-              LineChartData(
-                gridData: FlGridData(
-                  show: true,
-                  drawHorizontalLine: true,
-                  drawVerticalLine: true,
-                  getDrawingHorizontalLine: (value) {
-                    return FlLine(
-                      color: Colors.grey.withOpacity(0.5),
-                      strokeWidth: 1,
-                    );
-                  },
-                  getDrawingVerticalLine: (value) {
-                    return FlLine(
-                      color: Colors.grey.withOpacity(0.5),
-                      strokeWidth: 0.5,
-                    );
-                  },
-                ),
-                titlesData: FlTitlesData(
-                  show: true,
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 40,
-                      getTitlesWidget: (value, meta) {
-                        // Menampilkan timestamp sebagai label
-                        DateTime timestamp =
-                            DateTime.fromMillisecondsSinceEpoch(value.toInt());
-                        return Padding(
-                          padding: const EdgeInsets.only(top: 15),
-                          child: Text(
-                            "${timestamp.hour}:${timestamp.minute}",
-                            style: const TextStyle(
-                                color: Colors.black, fontSize: 10),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  leftTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 30,
-                      getTitlesWidget: (value, meta) {
-                        return Padding(
-                          padding: const EdgeInsets.only(
-                              top: 20, left: 10, bottom: 20),
-                          child: Text(
-                            value.toInt().toString(),
-                            style: const TextStyle(
-                                color: Colors.black, fontSize: 12),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  topTitles: const AxisTitles(
-                    sideTitles: SideTitles(showTitles: false),
-                  ),
-                  rightTitles: const AxisTitles(
-                    sideTitles: SideTitles(showTitles: false),
-                  ),
-                ),
-                borderData: FlBorderData(
-                  show: true,
-                  border: Border.all(color: Colors.black, width: 1),
-                ),
-                minX: minX,
-                maxX: maxX, // Set maxX berdasarkan data yang sudah difilter
-                minY: 65,
-                maxY: 85,
-                lineBarsData: [
-                  LineChartBarData(
-                    spots: filteredTk201Data,
-                    isCurved: true,
-                    curveSmoothness: 1.0,
-                    barWidth: 2,
-                    color: const Color(0xFFed4d9b),
-                    dotData: const FlDotData(show: false),
-                  ),
-                  LineChartBarData(
-                    spots: filteredTk202Data,
-                    isCurved: true,
-                    curveSmoothness: 1.0,
-                    barWidth: 2,
-                    color: const Color(0xFF9C27B0),
-                    dotData: const FlDotData(show: false),
-                  ),
-                  LineChartBarData(
-                    spots: filteredTk103Data,
-                    isCurved: true,
-                    curveSmoothness: 1.0,
-                    barWidth: 2,
-                    color: const Color(0xFFC6849B),
-                    dotData: const FlDotData(show: false),
-                  ),
-                ],
+          // Cek nilai sebelum menambahkannya
+          double tk201Value = sensorData['tk201']?.toDouble() ?? 0;
+          double tk202Value = sensorData['tk202']?.toDouble() ?? 0;
+          double tk103Value = sensorData['tk103']?.toDouble() ?? 0;
+
+          var timestampValue = sensorData['timestamp'];
+
+          // Pastikan nilai tetap dalam batas minY dan maxY
+          tk201Value = tk201Value.clamp(minY, maxY);
+          tk202Value = tk202Value.clamp(minY, maxY);
+          tk103Value = tk103Value.clamp(minY, maxY);
+
+          if (!tk201Value.isNaN && !tk201Value.isInfinite) {
+            _tk201Data.add(FlSpot((i - start).toDouble(), tk201Value));
+          }
+          if (!tk202Value.isNaN && !tk202Value.isInfinite) {
+            _tk202Data.add(FlSpot((i - start).toDouble(), tk202Value));
+          }
+          if (!tk103Value.isNaN && !tk103Value.isInfinite) {
+            _tk103Data.add(FlSpot((i - start).toDouble(), tk103Value));
+          }
+
+          // Menyimpan timestamp sebagai label waktu
+          if (timestampValue is String) {
+            DateTime timestamp = DateTime.parse(timestampValue);
+            timeLabels.add(DateFormat('HH:mm').format(timestamp));
+          }
+
+          // Debugging
+          // print('tk201: $tk201Value, tk202: $tk202Value, tk103: $tk103Value');
+        }
+
+        return Container(
+          height: 300, // Tinggi kontainer grafik
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withOpacity(0.3),
+                spreadRadius: 2,
+                blurRadius: 8,
+                offset: const Offset(0, 3),
               ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _buildLegend(color: const Color(0xFFed4d9b), label: 'Tk201'),
-              _buildLegend(color: const Color(0xFF9C27B0), label: 'Tk202'),
-              _buildLegend(color: const Color(0xFFC6849B), label: 'Tk103'),
             ],
           ),
-          const SizedBox(height: 16),
-        ],
-      ),
+          padding: const EdgeInsets.symmetric(
+              horizontal: 2.0), // Menambahkan padding horizontal
+
+          child: Column(
+            children: [
+              Expanded(
+                flex: 8,
+                child: LineChart(
+                  LineChartData(
+                    gridData: FlGridData(show: true),
+                    titlesData: FlTitlesData(
+                      show: true,
+                      leftTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 30,
+                          getTitlesWidget: (value, meta) {
+                            return Padding(
+                              padding: const EdgeInsets.only(
+                                  top: 50, left: 10, bottom: 45),
+                              child: Text(
+                                value.toInt().toString(),
+                                style: const TextStyle(
+                                    color: Colors.black, fontSize: 12),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      bottomTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true, // Tampilkan label sumbu bawah
+                          reservedSize: 40,
+                          getTitlesWidget: (value, meta) {
+                            // Pastikan indeks tidak melebihi jumlah data
+                            if (value.toInt() < timeLabels.length) {
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 15),
+                                child: Text(
+                                  timeLabels[value.toInt()],
+                                  style: const TextStyle(
+                                      color: Colors.black, fontSize: 10),
+                                ),
+                              );
+                            } else {
+                              return const SizedBox();
+                            }
+                          },
+                        ),
+                      ),
+                      topTitles: AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
+                      ),
+                      rightTitles: AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
+                      ),
+                    ),
+                    borderData: FlBorderData(
+                      show: true,
+                      border: Border.all(color: Colors.black, width: 1),
+                    ),
+                    minX: minX,
+                    maxX: maxX,
+                    minY: minY,
+                    maxY: maxY,
+                    lineBarsData: [
+                      LineChartBarData(
+                        spots: _tk201Data,
+                        isCurved: false,
+                        curveSmoothness: 0.1,
+                        color: const Color(0xFFed4d9b),
+                        dotData: FlDotData(show: false),
+                        belowBarData: BarAreaData(show: false),
+                      ),
+                      LineChartBarData(
+                        spots: _tk202Data,
+                        isCurved: false,
+                        curveSmoothness: 0.1,
+                        color: const Color.fromARGB(255, 77, 237, 184),
+                        dotData: FlDotData(show: false),
+                        belowBarData: BarAreaData(show: false),
+                      ),
+                      LineChartBarData(
+                        spots: _tk103Data,
+                        isCurved: false,
+                        curveSmoothness: 0.1,
+                        color: const Color(0xFFC6849B),
+                        dotData: FlDotData(show: false),
+                        belowBarData: BarAreaData(show: false),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildLegend(color: const Color(0xFFed4d9b), label: 'Tk201'),
+                  _buildLegend(
+                      color: const Color.fromARGB(255, 77, 237, 184),
+                      label: 'Tk202'),
+                  _buildLegend(color: const Color(0xFFC6849B), label: 'Tk103'),
+                ],
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -924,13 +992,16 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildCircularValue(String label, double value) {
+    Color circleColor = value < 65 || value > 80
+        ? const Color(0xFFFF6B6B)
+        : const Color(0xFF8547b0);
     return Column(
       children: [
         Container(
           width: 80,
           height: 80,
           decoration: BoxDecoration(
-            color: const Color(0xFF8547b0), // Ganti warna sesuai kebutuhan
+            color: circleColor, // Ganti warna sesuai kebutuhan
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(

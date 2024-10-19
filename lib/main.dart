@@ -11,9 +11,18 @@ import 'package:intl/intl.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:aplikasitest1/pages/home_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
+
+// Variabel global untuk menyimpan data sensor
+double tk201 = 0;
+double tk202 = 0;
+double tk103 = 0;
+int boiler = 0;
+int ofda = 0;
+int oiless = 0;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -57,14 +66,16 @@ Future<void> initializeService() async {
 // Fungsi yang akan dijalankan saat background service dimulai
 @pragma('vm:entry-point')
 void onStart(ServiceInstance service) async {
+  final timestamp = DateTime.now();
+
   // Periksa apakah Firebase sudah diinisialisasi
   if (Firebase.apps.isEmpty) {
     await Firebase.initializeApp();
   }
-  // // Buka box Hive yang diperlukan
+
+  // Buka box Hive yang diperlukan
   try {
     await Hive.initFlutter();
-
     await Hive.openBox('sensorDataBox');
     await Hive.openBox('alarmHistoryBox');
     await Hive.openBox('settingsBox');
@@ -88,18 +99,49 @@ void onStart(ServiceInstance service) async {
       title: "Background Service",
       content: "Running background tasks",
     );
-
-    // Foreground service akan berjalan dengan notifikasi ini
   }
+  SharedPreferences prefs = await SharedPreferences.getInstance();
 
   // Interval untuk menjalankan background task
-  Timer.periodic(const Duration(seconds: 30), (timer) async {
-    // Hanya jalankan jika service dalam mode foreground
-    if (service is AndroidServiceInstance) {
-      if (await service.isForegroundService()) {
-        print("Running periodic background task");
-        await executeFetchData(); // Memanggil fetchData dari background_task_service.dart
-      }
+  Timer.periodic(const Duration(seconds: 15), (timer) async {
+    final dataService = DataService();
+    await executeFetchData();
+    await dataService.checkAlarmCondition(
+        tk201, tk202, tk103, boiler, ofda, oiless, DateTime.now());
+
+    // // Hanya jalankan jika service dalam mode foreground
+    // if (service is AndroidServiceInstance) {
+    //   if (await service.isForegroundService()) {
+    //     print("Running periodic background task");
+
+    //     // Panggil executeFetchData untuk mengambil data
+    //     await executeFetchData();
+
+    //     // // Panggil checkAlarmCondition setelah data diperbarui
+    //     await dataService.checkAlarmCondition(
+    //         tk201, tk202, tk103, boiler, ofda, oiless, DateTime.now());
+    //   }
+    // }
+  });
+  // Listen for data sent from the UI
+  service.on('updateData').listen((event) async {
+    if (event!["task1"] != null) {
+      await prefs.setBool("task1", event["task1"]);
+    }
+    if (event["task2"] != null) {
+      await prefs.setBool("task2", event["task2"]);
+    }
+    if (event["task3"] != null) {
+      await prefs.setBool("task3", event["task3"]);
+    }
+    if (event["task4"] != null) {
+      await prefs.setBool("task4", event["task4"]);
+    }
+    if (event["task5"] != null) {
+      await prefs.setBool("task5", event["task5"]);
+    }
+    if (event["task6"] != null) {
+      await prefs.setBool("task6", event["task6"]);
     }
   });
 }
@@ -107,22 +149,28 @@ void onStart(ServiceInstance service) async {
 // Fungsi untuk menjalankan fetchData dari DataService
 Future<void> executeFetchData() async {
   final dataService = DataService();
-
-  // Inisialisasi data yang dibutuhkan oleh fetchData (sesuaikan dengan implementasi Anda)
   List<FlSpot> tk201Data = [];
   List<FlSpot> tk202Data = [];
   List<FlSpot> tk103Data = [];
   List<String> timestamps = [];
   DateFormat formatter = DateFormat('yyyy-MM-dd HH:mm:ss');
 
-  // Callback untuk update data setelah fetch (sesuaikan implementasi)
-  void updateCallback(int boiler, int oiless, int ofda, double tk201,
-      double tk202, double tk103) {
+  // Callback untuk update data setelah fetch
+  void updateCallback(int newBoiler, int newOiless, int newOfda,
+      double newTk201, double newTk202, double newTk103) {
+    // Simpan data yang diperoleh dari fetchData
+    boiler = newBoiler;
+    oiless = newOiless;
+    ofda = newOfda;
+    tk201 = newTk201;
+    tk202 = newTk202;
+    tk103 = newTk103;
+
     print(
         "Data updated: Boiler: $boiler, Oiless: $oiless, OFDA: $ofda, TK201: $tk201, TK202: $tk202, TK103: $tk103");
   }
 
-  // Panggil fetchData dari DataService yang sudah Anda buat
+  // Panggil fetchData terlebih dahulu
   await dataService.fetchData(0, tk201Data, tk202Data, tk103Data, timestamps,
       formatter, updateCallback);
 }
