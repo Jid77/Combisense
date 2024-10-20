@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ffi';
 import 'package:aplikasitest1/app.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
@@ -23,6 +24,8 @@ double tk103 = 0;
 int boiler = 0;
 int ofda = 0;
 int oiless = 0;
+double pwg = 0;
+double p_ofda = 0;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -152,12 +155,21 @@ Future<void> executeFetchData() async {
   List<FlSpot> tk201Data = [];
   List<FlSpot> tk202Data = [];
   List<FlSpot> tk103Data = [];
+  List<FlSpot> pwgData = [];
+  List<FlSpot> p_ofdaData = [];
   List<String> timestamps = [];
   DateFormat formatter = DateFormat('yyyy-MM-dd HH:mm:ss');
 
   // Callback untuk update data setelah fetch
-  void updateCallback(int newBoiler, int newOiless, int newOfda,
-      double newTk201, double newTk202, double newTk103) {
+  void updateCallback(
+      int newBoiler,
+      int newOiless,
+      int newOfda,
+      double newTk201,
+      double newTk202,
+      double newTk103,
+      double newPwg,
+      double newP_ofda) {
     // Simpan data yang diperoleh dari fetchData
     boiler = newBoiler;
     oiless = newOiless;
@@ -165,12 +177,14 @@ Future<void> executeFetchData() async {
     tk201 = newTk201;
     tk202 = newTk202;
     tk103 = newTk103;
+    pwg = newPwg;
+    p_ofda = newP_ofda;
 
     print(
-        "Data updated: Boiler: $boiler, Oiless: $oiless, OFDA: $ofda, TK201: $tk201, TK202: $tk202, TK103: $tk103");
+        "Data updated: Boiler: $boiler, Oiless: $oiless, OFDA: $ofda, TK201: $tk201, TK202: $tk202, TK103: $tk103, PWG : $pwg, PressureOfda : $p_ofda");
   }
 
   // Panggil fetchData terlebih dahulu
-  await dataService.fetchData(0, tk201Data, tk202Data, tk103Data, timestamps,
-      formatter, updateCallback);
+  await dataService.fetchData(0, tk201Data, tk202Data, tk103Data, pwgData,
+      p_ofdaData, timestamps, formatter, updateCallback);
 }

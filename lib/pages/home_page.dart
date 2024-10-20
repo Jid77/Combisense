@@ -33,6 +33,8 @@ class _HomePageState extends State<HomePage> {
   final List<FlSpot> _tk201Data = [];
   final List<FlSpot> _tk202Data = [];
   final List<FlSpot> _tk103Data = [];
+  final List<FlSpot> _pwgData = [];
+  final List<FlSpot> _p_ofdaData = [];
   int _boilerStatus = 0;
   int _ofdaStatus = 0;
   int _oilessStatus = 0;
@@ -56,6 +58,8 @@ class _HomePageState extends State<HomePage> {
   double tk201 = 0;
   double tk202 = 0;
   double tk103 = 0;
+  double pwg = 0;
+  double p_ofda = 0;
 
   // State untuk mengontrol status alarm
   bool isTask1On = false;
@@ -93,8 +97,11 @@ class _HomePageState extends State<HomePage> {
       [],
       [],
       [],
+      [],
+      [],
       DateFormat('yyyy-MM-dd HH:mm:ss'),
-      (newBoiler, newOiless, newOfda, newTk201, newTk202, newTk103) {
+      (newBoiler, newOiless, newOfda, newTk201, newTk202, newTk103, newPwg,
+          newP_ofda) {
         setState(() {
           boiler = newBoiler;
           oiless = newOiless;
@@ -102,6 +109,8 @@ class _HomePageState extends State<HomePage> {
           tk201 = newTk201;
           tk202 = newTk202;
           tk103 = newTk103;
+          pwg = newPwg;
+          p_ofda = newP_ofda;
         });
       },
     );
@@ -119,6 +128,8 @@ class _HomePageState extends State<HomePage> {
         tk201 = (data['tk201']?.toDouble() ?? 0);
         tk202 = (data['tk202']?.toDouble() ?? 0);
         tk103 = (data['tk103']?.toDouble() ?? 0);
+        pwg = (data['pwg']?.toDouble() ?? 0);
+        p_ofda = (data['p_ofda']?.toDouble() ?? 0);
       });
 
       // Simpan data ke Hive
@@ -134,6 +145,8 @@ class _HomePageState extends State<HomePage> {
       'tk201': data['tk201'],
       'tk202': data['tk202'],
       'tk103': data['tk103'],
+      'pwg': data['pwg'],
+      'p_ofda': data['p_ofda'],
       'timestamp': DateTime.now().toIso8601String(),
     };
     sensorDataList.add(sensorData); // Append data baru ke dalam list
@@ -285,8 +298,8 @@ class _HomePageState extends State<HomePage> {
                     label: 'History',
                   ),
                   const BottomNavigationBarItem(
-                    icon: Icon(Icons.alarm, size: 26),
-                    label: 'Alarm',
+                    icon: Icon(Icons.settings, size: 26),
+                    label: 'Setting',
                   ),
                 ],
                 selectedItemColor: const Color(0xFF532F8F),
@@ -694,8 +707,191 @@ class _HomePageState extends State<HomePage> {
                             ],
                           ),
                         ),
+                      ),
+
+                      // Halaman Ketigaa: PWG - Hot LOOP
+                      Padding(
+                        padding: const EdgeInsets.only(
+                            top: 25.0, left: 16, right: 16, bottom: 16),
+                        child: SingleChildScrollView(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    vertical: 8.0, horizontal: 16.0),
+                                child: const Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      "Temperature Hot Loop",
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.black,
+                                      ),
+                                      textAlign: TextAlign.start,
+                                    ),
+                                    SizedBox(
+                                        height:
+                                            4), // Jarak antara teks dan garis
+                                    Divider(
+                                      thickness: 2, // Ketebalan garis
+                                      color: Colors.black, // Warna garis
+                                      indent: 0, // Jarak dari tepi kiri
+                                      endIndent: 150, // Jarak dari tepi kanan
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+
+                              // Container for Current Temperature display
+                              Container(
+                                width: 5,
+                                padding: const EdgeInsets.all(16.0),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(12.0),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.grey.withOpacity(0.3),
+                                      spreadRadius: 2,
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 3),
+                                    ),
+                                  ],
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      "Current Temperature",
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceAround,
+                                      children: [
+                                        _buildCircularValue('', pwg),
+                                        _buildStatusTextPwg(pwg)
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Title and Chart
+                              const Text(
+                                "Graphic Temperature",
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              _buildChartPwg(),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      // Halaman Keempat: Ofda
+                      Padding(
+                        padding: const EdgeInsets.only(
+                            top: 25.0, left: 16, right: 16, bottom: 16),
+                        child: SingleChildScrollView(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    vertical: 8.0, horizontal: 16.0),
+                                child: const Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      "Pressure Ofda",
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.black,
+                                      ),
+                                      textAlign: TextAlign.start,
+                                    ),
+                                    SizedBox(
+                                        height:
+                                            4), // Jarak antara teks dan garis
+                                    Divider(
+                                      thickness: 2, // Ketebalan garis
+                                      color: Colors.black, // Warna garis
+                                      indent: 0, // Jarak dari tepi kiri
+                                      endIndent: 150, // Jarak dari tepi kanan
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+
+                              // Container for Current Temperature display
+                              Container(
+                                width: 5,
+                                padding: const EdgeInsets.all(16.0),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(12.0),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.grey.withOpacity(0.3),
+                                      spreadRadius: 2,
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 3),
+                                    ),
+                                  ],
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      "Current Pressure",
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceAround,
+                                      children: [
+                                        _buildCircularValueOfda('', p_ofda),
+                                        _buildStatusTextOfda(p_ofda, ofda)
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Title and Chart
+                              const Text(
+                                "Graphic Temperature",
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              _buildChartOfda(),
+                            ],
+                          ),
+                        ),
                       )
-                      // Halaman Ketigaa: PWG
                     ],
                   ),
                 ),
@@ -972,6 +1168,335 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+// Widget untuk menampilkan grafik
+  Widget _buildChartPwg() {
+    return ValueListenableBuilder(
+      valueListenable: Hive.box('sensorDataBox').listenable(),
+      builder: (context, Box box, _) {
+        if (!box.containsKey('sensorDataList')) {
+          return Center(child: Text("No sensor data available"));
+        }
+
+        final sensorDataList = box.get('sensorDataList') as List;
+
+        // // Clear previous data
+        _pwgData.clear();
+
+        // Tentukan rentang X untuk menampilkan 10 data terbaru
+        int range = 15;
+        int totalDataLength = sensorDataList.length;
+        int start = (totalDataLength > range) ? totalDataLength - range : 0;
+        double minX = 0;
+        double maxX =
+            (totalDataLength > range) ? range - 1 : totalDataLength - 1;
+
+        List<String> timeLabels = [];
+        // Batasan untuk rentang Y
+        double minY = 60;
+        double maxY = 85;
+
+        // Loop dari data terbaru ke terlama, mulai dari index start
+        for (int i = start; i < totalDataLength; i++) {
+          final sensorData = sensorDataList[i];
+
+          // Cek nilai sebelum menambahkannya
+          double pwgValue = sensorData['pwg']?.toDouble() ?? 0;
+
+          var timestampValue = sensorData['timestamp'];
+
+          // Pastikan nilai tetap dalam batas minY dan maxY
+          pwgValue = pwgValue.clamp(minY, maxY);
+
+          if (!pwgValue.isNaN && !pwgValue.isInfinite) {
+            _pwgData.add(FlSpot((i - start).toDouble(), pwgValue));
+          }
+
+          // Menyimpan timestamp sebagai label waktu
+          if (timestampValue is String) {
+            DateTime timestamp = DateTime.parse(timestampValue);
+            timeLabels.add(DateFormat('HH:mm').format(timestamp));
+          }
+
+          // Debugging
+          // print('tk201: $tk201Value, tk202: $tk202Value, tk103: $tk103Value');
+        }
+
+        return Container(
+          height: 300, // Tinggi kontainer grafik
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withOpacity(0.3),
+                spreadRadius: 2,
+                blurRadius: 8,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.symmetric(
+              horizontal: 2.0), // Menambahkan padding horizontal
+
+          child: Column(
+            children: [
+              Expanded(
+                flex: 8,
+                child: LineChart(
+                  LineChartData(
+                    gridData: FlGridData(show: true),
+                    titlesData: FlTitlesData(
+                      show: true,
+                      leftTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 30,
+                          getTitlesWidget: (value, meta) {
+                            return Padding(
+                              padding: const EdgeInsets.only(
+                                  top: 50, left: 10, bottom: 45),
+                              child: Text(
+                                value.toInt().toString(),
+                                style: const TextStyle(
+                                    color: Colors.black, fontSize: 12),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      bottomTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true, // Tampilkan label sumbu bawah
+                          reservedSize: 40,
+                          getTitlesWidget: (value, meta) {
+                            // Pastikan indeks tidak melebihi jumlah data
+                            if (value.toInt() < timeLabels.length) {
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 15),
+                                child: Text(
+                                  timeLabels[value.toInt()],
+                                  style: const TextStyle(
+                                      color: Colors.black, fontSize: 10),
+                                ),
+                              );
+                            } else {
+                              return const SizedBox();
+                            }
+                          },
+                        ),
+                      ),
+                      topTitles: AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
+                      ),
+                      rightTitles: AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
+                      ),
+                    ),
+                    borderData: FlBorderData(
+                      show: true,
+                      border: Border.all(color: Colors.black, width: 1),
+                    ),
+                    minX: minX,
+                    maxX: maxX,
+                    minY: minY,
+                    maxY: maxY,
+                    lineBarsData: [
+                      LineChartBarData(
+                        spots: _pwgData,
+                        isCurved: false,
+                        curveSmoothness: 0.1,
+                        color: const Color(0xFFed4d9b),
+                        dotData: FlDotData(show: false),
+                        belowBarData: BarAreaData(show: false),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildLegend(
+                      color: const Color(0xFFed4d9b), label: 'Hot Loop Tank'),
+                ],
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
+  }
+// Widget untuk menampilkan grafik
+
+  Widget _buildChartOfda() {
+    return ValueListenableBuilder(
+      valueListenable: Hive.box('sensorDataBox').listenable(),
+      builder: (context, Box box, _) {
+        if (!box.containsKey('sensorDataList')) {
+          return Center(child: Text("No sensor data available"));
+        }
+
+        final sensorDataList = box.get('sensorDataList') as List;
+
+        // // Clear previous data
+        _p_ofdaData.clear();
+
+        // Tentukan rentang X untuk menampilkan 10 data terbaru
+        int range = 15;
+        int totalDataLength = sensorDataList.length;
+        int start = (totalDataLength > range) ? totalDataLength - range : 0;
+        double minX = 0;
+        double maxX =
+            (totalDataLength > range) ? range - 1 : totalDataLength - 1;
+
+        List<String> timeLabels = [];
+        // Batasan untuk rentang Y
+        double minY = 60;
+        double maxY = 85;
+
+        // Loop dari data terbaru ke terlama, mulai dari index start
+        for (int i = start; i < totalDataLength; i++) {
+          final sensorData = sensorDataList[i];
+
+          // Cek nilai sebelum menambahkannya
+          double ofdaValue = sensorData['p_ofda']?.toDouble() ?? 0;
+
+          // double tk201Value = sensorData['tk201']?.toDouble() ?? 0;
+          // double tk202Value = sensorData['tk202']?.toDouble() ?? 0;
+          // double tk103Value = sensorData['tk103']?.toDouble() ?? 0;
+
+          var timestampValue = sensorData['timestamp'];
+
+          // Pastikan nilai tetap dalam batas minY dan maxY
+          ofdaValue = ofdaValue.clamp(minY, maxY);
+          // tk201Value = tk201Value.clamp(minY, maxY);
+          // tk202Value = tk202Value.clamp(minY, maxY);
+          // tk103Value = tk103Value.clamp(minY, maxY);
+
+          if (!ofdaValue.isNaN && !ofdaValue.isInfinite) {
+            _p_ofdaData.add(FlSpot((i - start).toDouble(), ofdaValue));
+          }
+
+          // Menyimpan timestamp sebagai label waktu
+          if (timestampValue is String) {
+            DateTime timestamp = DateTime.parse(timestampValue);
+            timeLabels.add(DateFormat('HH:mm').format(timestamp));
+          }
+
+          // Debugging
+          // print('tk201: $tk201Value, tk202: $tk202Value, tk103: $tk103Value');
+        }
+
+        return Container(
+          height: 300, // Tinggi kontainer grafik
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withOpacity(0.3),
+                spreadRadius: 2,
+                blurRadius: 8,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.symmetric(
+              horizontal: 2.0), // Menambahkan padding horizontal
+
+          child: Column(
+            children: [
+              Expanded(
+                flex: 8,
+                child: LineChart(
+                  LineChartData(
+                    gridData: FlGridData(show: true),
+                    titlesData: FlTitlesData(
+                      show: true,
+                      leftTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 30,
+                          getTitlesWidget: (value, meta) {
+                            return Padding(
+                              padding: const EdgeInsets.only(
+                                  top: 50, left: 10, bottom: 45),
+                              child: Text(
+                                value.toInt().toString(),
+                                style: const TextStyle(
+                                    color: Colors.black, fontSize: 12),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      bottomTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true, // Tampilkan label sumbu bawah
+                          reservedSize: 40,
+                          getTitlesWidget: (value, meta) {
+                            // Pastikan indeks tidak melebihi jumlah data
+                            if (value.toInt() < timeLabels.length) {
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 15),
+                                child: Text(
+                                  timeLabels[value.toInt()],
+                                  style: const TextStyle(
+                                      color: Colors.black, fontSize: 10),
+                                ),
+                              );
+                            } else {
+                              return const SizedBox();
+                            }
+                          },
+                        ),
+                      ),
+                      topTitles: AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
+                      ),
+                      rightTitles: AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
+                      ),
+                    ),
+                    borderData: FlBorderData(
+                      show: true,
+                      border: Border.all(color: Colors.black, width: 1),
+                    ),
+                    minX: minX,
+                    maxX: maxX,
+                    minY: minY,
+                    maxY: maxY,
+                    lineBarsData: [
+                      LineChartBarData(
+                        spots: _p_ofdaData,
+                        isCurved: false,
+                        curveSmoothness: 0.1,
+                        color: const Color(0xFFed4d9b),
+                        dotData: FlDotData(show: false),
+                        belowBarData: BarAreaData(show: false),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildLegend(
+                      color: const Color(0xFFed4d9b), label: 'Pressure Ofda'),
+                ],
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildValueWidget(String label, double value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -1031,6 +1556,119 @@ class _HomePageState extends State<HomePage> {
             fontWeight: FontWeight.w500,
           ),
         ),
+      ],
+    );
+  }
+
+  Widget _buildCircularValueOfda(String label, double value) {
+// Membagi value dengan 10 untuk mendapatkan nilai yang benar
+    double valueP = value / 10;
+
+    // Mengatur warna lingkaran berdasarkan nilai valueP
+    Color circleColor = valueP < 6.5 || valueP > 8.0
+        ? const Color(0xFFFF6B6B)
+        : const Color(0xFF8547b0);
+    return Column(
+      children: [
+        Container(
+          width: 80,
+          height: 80,
+          decoration: BoxDecoration(
+            color: circleColor, // Ganti warna sesuai kebutuhan
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withOpacity(0.3),
+                spreadRadius: 2,
+                blurRadius: 6,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Center(
+            child: Text(
+              '${valueP.toStringAsFixed(1)} bar',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+
+// Fungsi untuk menampilkan status Normal/Abnormal
+  Widget _buildStatusTextPwg(double value) {
+    // Logika menentukan status berdasarkan nilai value (pwg)
+    String status = (value < 65 || value > 80) ? "Abnormal" : "Normal";
+    Color backgroundColor = (value < 65 || value > 80)
+        ? const Color(0xFFFF6B6B)
+        : const Color(0xFF6FCF97);
+
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(
+              vertical: 8.0, horizontal: 16.0), // Menambahkan padding dalam box
+          decoration: BoxDecoration(
+            color: backgroundColor, // Warna background berubah sesuai status
+            borderRadius:
+                BorderRadius.circular(10.0), // Membuat sudut box melengkung
+          ),
+          child: Text(
+            status,
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.white, // Teks selalu berwarna putih
+            ),
+          ),
+        ),
+        const SizedBox(height: 16), // Memberi jarak di bawah box
+      ],
+    );
+  }
+
+// Fungsi untuk menampilkan status Normal/Abnormal
+  Widget _buildStatusTextOfda(double value, int value_on) {
+    // Logika menentukan status berdasarkan nilai value (pwg)
+    double valueP = value / 10;
+    String status = (valueP < 4.5 || value_on == 0) ? "Abnormal" : "Normal";
+    Color backgroundColor = (valueP < 4.5 || value_on == 0)
+        ? const Color(0xFFFF6B6B)
+        : const Color(0xFF6FCF97);
+
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(
+              vertical: 8.0, horizontal: 16.0), // Menambahkan padding dalam box
+          decoration: BoxDecoration(
+            color: backgroundColor, // Warna background berubah sesuai status
+            borderRadius:
+                BorderRadius.circular(10.0), // Membuat sudut box melengkung
+          ),
+          child: Text(
+            status,
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.white, // Teks selalu berwarna putih
+            ),
+          ),
+        ),
+        const SizedBox(height: 16), // Memberi jarak di bawah box
       ],
     );
   }

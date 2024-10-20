@@ -29,9 +29,12 @@ class DataService {
     List<FlSpot> tk201Data,
     List<FlSpot> tk202Data,
     List<FlSpot> tk103Data,
+    List<FlSpot> pwgData,
+    List<FlSpot> p_ofdaData,
     List<String> timestamps,
     DateFormat formatter,
-    Function(int, int, int, double, double, double) updateCallback,
+    Function(int, int, int, double, double, double, double, double)
+        updateCallback,
   ) async {
     try {
       // Ambil data dari Firebase
@@ -41,21 +44,24 @@ class DataService {
         final tk201 = data['tk201']?.toDouble() ?? 0;
         final tk202 = data['tk202']?.toDouble() ?? 0;
         final tk103 = data['tk103']?.toDouble() ?? 0;
+        final pwg = data['pwg']?.toDouble() ?? 0;
+        final p_ofda = data['p_ofda']?.toDouble() ?? 0;
         final boiler = data['boiler'] ?? 0;
         final ofda = data['ofda'] ?? 0;
         final oiless = data['oiless'] ?? 0;
         final timestamp = DateTime.now();
 
         // Simpan data, tk201, tk202, dan tk103 di-append, boiler, ofda, dan oiless di-replace
-        await _saveToHive(tk201, tk202, tk103, boiler, ofda, oiless, timestamp);
+        await _saveToHive(
+            tk201, tk202, tk103, pwg, p_ofda, boiler, ofda, oiless, timestamp);
 
         // // Load pengaturan alarm dan cek kondisi alarm
         // await checkAlarmCondition(
         //     tk201, tk202, tk103, boiler, ofda, oiless, timestamp);
 
         // Panggil callback dengan data yang diterima
-        updateCallback(
-            boiler.toInt(), oiless.toInt(), ofda.toInt(), tk201, tk202, tk103);
+        updateCallback(boiler.toInt(), oiless.toInt(), ofda.toInt(), tk201,
+            tk202, tk103, pwg, p_ofda);
 
         // Update stream untuk boiler, oiless, dan ofda
         _boilerStreamController.add(boiler.toInt());
@@ -67,8 +73,16 @@ class DataService {
     }
   }
 
-  Future<void> _saveToHive(double tk201, double tk202, double tk103, int boiler,
-      int ofda, int oiless, DateTime timestamp) async {
+  Future<void> _saveToHive(
+      double tk201,
+      double tk202,
+      double tk103,
+      double pwg,
+      double p_ofda,
+      int boiler,
+      int ofda,
+      int oiless,
+      DateTime timestamp) async {
     // Buka atau buat box bernama 'sensorDataBox'
     final sensorDataBox = await Hive.openBox('sensorDataBox');
 
@@ -79,6 +93,8 @@ class DataService {
       'tk201': tk201,
       'tk202': tk202,
       'tk103': tk103,
+      'pwg': pwg,
+      'p_ofda': p_ofda,
       'timestamp': timestamp.toIso8601String(),
     };
     sensorDataList.add(sensorData); // Append data baru ke dalam list
