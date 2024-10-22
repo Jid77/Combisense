@@ -440,72 +440,121 @@ class _HomePageState extends State<HomePage> {
   Widget _buildHistoryContent() {
     return Padding(
       padding:
-          const EdgeInsets.only(top: 150.0), // Sesuaikan dengan tinggi app bar
-
-      child: ValueListenableBuilder(
-        valueListenable: _alarmHistoryBox.listenable(),
-        builder: (context, Box box, _) {
-          final alarmEntries = box.toMap().entries.toList();
-
-          // Mengurutkan alarm berdasarkan timestamp, terbaru di atas
-          alarmEntries.sort((a, b) {
-            DateTime timestampA = a.value['timestamp'] is String
-                ? DateTime.parse(a.value['timestamp'])
-                : a.value['timestamp'];
-            DateTime timestampB = b.value['timestamp'] is String
-                ? DateTime.parse(b.value['timestamp'])
-                : b.value['timestamp'];
-            return timestampB.compareTo(timestampA);
-          });
-
-          return ListView.builder(
-            itemCount: alarmEntries.length,
-            itemBuilder: (context, index) {
-              final entry = alarmEntries[index];
-              final key = entry.key; // Mengambil kunci dari item
-              final alarm = entry.value;
-
-              // Format timestamp ke string sederhana
-              String formattedTimestamp = alarm['timestamp'] is DateTime
-                  ? DateFormat('MMMM dd, yyyy HH:mm WIB')
-                      .format(alarm['timestamp'])
-                  : alarm['timestamp'];
-              // Menampilkan nama alarm dan nilai sensor di judul
-              String title = '${alarm['alarmName']} - ${alarm['sensorValue']}°';
-
-              return Card(
-                margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
-                elevation: 3,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(35), // Rounded corners
-                ),
-                color: const Color.fromARGB(255, 255, 255, 255),
-                child: ListTile(
-                  contentPadding: const EdgeInsets.all(16),
-                  title: Text(
-                    title,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                      color: Color.fromARGB(255, 0, 0, 0),
-                    ),
-                  ),
-                  subtitle: Text(
-                    formattedTimestamp,
-                    style: TextStyle(color: Colors.grey[600]),
-                  ),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.delete, color: Color(0xFF532F8F)),
-                    onPressed: () {
-                      // Menghapus alarm dari Hive menggunakan kunci yang tepat
-                      box.delete(key);
-                    },
+          const EdgeInsets.only(top: 185.0), // Sesuaikan dengan tinggi app bar
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start, // Align ke kiri
+        children: [
+          // Menambahkan judul halaman
+          Padding(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16.0), // Jarak dari tepi
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.start, // Align teks ke kiri
+              children: [
+                Text(
+                  'Alarm History', // Judul halaman
+                  style: const TextStyle(
+                    fontSize: 20, // Ukuran font untuk judul
+                    fontWeight: FontWeight.bold, // Membuat judul menjadi tebal
+                    color: Color.fromARGB(255, 0, 0, 0), // Warna judul
                   ),
                 ),
-              );
-            },
-          );
-        },
+                SizedBox(height: 4), // Jarak antara teks dan garis
+                Divider(
+                  thickness: 2, // Ketebalan garis
+                  color: Colors.black, // Warna garis
+                  indent: 0, // Jarak dari tepi kiri
+                  endIndent: 280, // Jarak dari tepi kanan
+                ),
+              ],
+            ),
+          ),
+          // Tambahkan sedikit jarak antara judul dan list
+          // const SizedBox(height: 16),
+
+          // List alarm
+          Expanded(
+            child: ValueListenableBuilder(
+              valueListenable: _alarmHistoryBox.listenable(),
+              builder: (context, Box box, _) {
+                final alarmEntries = box.toMap().entries.toList();
+
+                // Mengurutkan alarm berdasarkan timestamp, terbaru di atas
+                alarmEntries.sort((a, b) {
+                  DateTime timestampA = a.value['timestamp'] is String
+                      ? DateTime.parse(a.value['timestamp'])
+                      : a.value['timestamp'];
+                  DateTime timestampB = b.value['timestamp'] is String
+                      ? DateTime.parse(b.value['timestamp'])
+                      : b.value['timestamp'];
+                  return timestampB.compareTo(timestampA);
+                });
+
+                return ListView.builder(
+                  padding: const EdgeInsets.only(
+                      top: 2.0), // Kurangi padding di bagian atas list
+                  itemCount: alarmEntries.length,
+                  itemBuilder: (context, index) {
+                    final entry = alarmEntries[index];
+                    final key = entry.key; // Mengambil kunci dari item
+                    final alarm = entry.value;
+
+                    // Format timestamp ke string
+                    String formattedTimestamp = alarm['timestamp'] is DateTime
+                        ? DateFormat('MMMM dd, yyyy HH:mm WIB')
+                            .format(alarm['timestamp'])
+                        : alarm['timestamp'];
+                    // Judul Alarm
+                    String title;
+                    if (alarm['alarmName'] == 'boiler' ||
+                        alarm['alarmName'] == 'oiless' ||
+                        alarm['alarmName'] == 'ofda') {
+                      title =
+                          alarm['alarmName']; // Hanya menampilkan nama alarm
+                    } else {
+                      title =
+                          '${alarm['alarmName']} - ${alarm['sensorValue']}°'; // Menampilkan nama alarm dan nilai sensor
+                    }
+                    return Card(
+                      margin: const EdgeInsets.symmetric(
+                          vertical: 4, horizontal: 16),
+                      elevation: 3,
+                      shape: RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.circular(35), // Rounded corners
+                      ),
+                      color: const Color.fromARGB(255, 255, 255, 255),
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.all(16),
+                        title: Text(
+                          title,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                            color: Color.fromARGB(255, 0, 0, 0),
+                          ),
+                        ),
+                        subtitle: Text(
+                          formattedTimestamp,
+                          style: TextStyle(color: Colors.grey[600]),
+                        ),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete,
+                              color: Color(0xFF532F8F)),
+                          onPressed: () {
+                            // Menghapus alarm dari Hive menggunakan kunci yang tepat
+                            box.delete(key);
+                          },
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1353,8 +1402,8 @@ class _HomePageState extends State<HomePage> {
 
         List<String> timeLabels = [];
         // Batasan untuk rentang Y
-        double minY = 60;
-        double maxY = 85;
+        double minY = 40;
+        double maxY = 80;
 
         // Loop dari data terbaru ke terlama, mulai dari index start
         for (int i = start; i < totalDataLength; i++) {
