@@ -12,6 +12,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:aplikasitest1/widgets/background_wave.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:aplikasitest1/services/export_service.dart';
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
@@ -68,7 +69,9 @@ class _HomePageState extends State<HomePage> {
   bool isTask4On = false;
   bool isTask5On = false;
   bool isTask6On = false;
-
+  //  excel - timestamp
+  final ExportService _exportService = ExportService();
+  DateTimeRange? selectedDateRange;
   @override
   void initState() {
     super.initState();
@@ -332,6 +335,32 @@ class _HomePageState extends State<HomePage> {
             indent: 0, // Jarak dari tepi kiri
             endIndent: 150, // Jarak dari tepi kanan
           ),
+          const SizedBox(height: 10),
+          Center(
+            child: ElevatedButton(
+              onPressed: () async {
+                // Tampilkan dialog untuk memilih rentang waktu
+                DateTimeRange? dateRange = await showDateRangePicker(
+                  context: context,
+                  firstDate: DateTime(2022), // Tanggal awal yang dapat dipilih
+                  lastDate: DateTime.now(), // Tanggal akhir yang dapat dipilih
+                  helpText: 'Pilih Rentang Tanggal',
+                );
+
+                if (dateRange != null) {
+                  final exportService = ExportService();
+                  // Panggil fungsi exportDataToExcel dengan rentang waktu yang dipilih
+                  await exportService.exportDataToExcel(
+                    context,
+                    startDate: dateRange.start,
+                    endDate: dateRange.end,
+                  );
+                }
+              },
+              child: Text('Export to Excel'),
+            ),
+          ),
+          const SizedBox(height: 10), // Space between button and switches
           const SizedBox(height: 5),
           _buildAlarmSwitch(
             title: 'Boiler Notification',
@@ -1082,12 +1111,14 @@ class _HomePageState extends State<HomePage> {
 
           // Menyimpan timestamp sebagai label waktu
           if (timestampValue is String) {
-            DateTime timestamp = DateTime.parse(timestampValue);
-            timeLabels.add(DateFormat('HH:mm').format(timestamp));
+            try {
+              DateTime timestamp =
+                  DateFormat('dd/MM/yyyy HH:mm').parse(timestampValue);
+              timeLabels.add(DateFormat('HH:mm').format(timestamp));
+            } catch (e) {
+              print('Error parsing timestamp: $timestampValue'); // Debugging
+            }
           }
-
-          // Debugging
-          // print('tk201: $tk201Value, tk202: $tk202Value, tk103: $tk103Value');
         }
 
         return Container(
@@ -1262,12 +1293,14 @@ class _HomePageState extends State<HomePage> {
 
           // Menyimpan timestamp sebagai label waktu
           if (timestampValue is String) {
-            DateTime timestamp = DateTime.parse(timestampValue);
-            timeLabels.add(DateFormat('HH:mm').format(timestamp));
+            try {
+              DateTime timestamp =
+                  DateFormat('dd/MM/yyyy HH:mm').parse(timestampValue);
+              timeLabels.add(DateFormat('HH:mm').format(timestamp));
+            } catch (e) {
+              print('Error parsing timestamp: $timestampValue'); // Debugging
+            }
           }
-
-          // Debugging
-          // print('tk201: $tk201Value, tk202: $tk202Value, tk103: $tk103Value');
         }
 
         return Container(
@@ -1402,8 +1435,8 @@ class _HomePageState extends State<HomePage> {
 
         List<String> timeLabels = [];
         // Batasan untuk rentang Y
-        double minY = 40;
-        double maxY = 80;
+        double minY = 4;
+        double maxY = 8;
 
         // Loop dari data terbaru ke terlama, mulai dari index start
         for (int i = start; i < totalDataLength; i++) {
@@ -1430,12 +1463,14 @@ class _HomePageState extends State<HomePage> {
 
           // Menyimpan timestamp sebagai label waktu
           if (timestampValue is String) {
-            DateTime timestamp = DateTime.parse(timestampValue);
-            timeLabels.add(DateFormat('HH:mm').format(timestamp));
+            try {
+              DateTime timestamp =
+                  DateFormat('dd/MM/yyyy HH:mm').parse(timestampValue);
+              timeLabels.add(DateFormat('HH:mm').format(timestamp));
+            } catch (e) {
+              print('Error parsing timestamp: $timestampValue'); // Debugging
+            }
           }
-
-          // Debugging
-          // print('tk201: $tk201Value, tk202: $tk202Value, tk103: $tk103Value');
         }
 
         return Container(
@@ -1611,10 +1646,10 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildCircularValueOfda(String label, double value) {
 // Membagi value dengan 10 untuk mendapatkan nilai yang benar
-    double valueP = value / 10;
+    // double valueP = value / 10;
 
     // Mengatur warna lingkaran berdasarkan nilai valueP
-    Color circleColor = valueP < 6.5 || valueP > 8.0
+    Color circleColor = value < 5.0 || value > 8.0
         ? const Color(0xFFFF6B6B)
         : const Color(0xFF8547b0);
     return Column(
@@ -1636,7 +1671,7 @@ class _HomePageState extends State<HomePage> {
           ),
           child: Center(
             child: Text(
-              '${valueP.toStringAsFixed(1)} bar',
+              '${value.toStringAsFixed(1)} bar',
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 18,
@@ -1692,9 +1727,8 @@ class _HomePageState extends State<HomePage> {
 // Fungsi untuk menampilkan status Normal/Abnormal
   Widget _buildStatusTextOfda(double value, int value_on) {
     // Logika menentukan status berdasarkan nilai value (pwg)
-    double valueP = value / 10;
-    String status = (valueP < 4.5 || value_on == 0) ? "Abnormal" : "Normal";
-    Color backgroundColor = (valueP < 4.5 || value_on == 0)
+    String status = (value < 5 || value_on == 0) ? "Abnormal" : "Normal";
+    Color backgroundColor = (value < 5 || value_on == 0)
         ? const Color(0xFFFF6B6B)
         : const Color(0xFF6FCF97);
 

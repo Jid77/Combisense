@@ -1,3 +1,4 @@
+import 'package:aplikasitest1/main.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
@@ -45,8 +46,10 @@ class DataService {
         final tk202 = data['tk202']?.toDouble() ?? 0;
         final tk103 = data['tk103']?.toDouble() ?? 0;
         final pwg = data['pwg']?.toDouble() ?? 0;
-        final p_ofda = data['p_ofda']?.toDouble() ?? 0;
-        final boiler = data['boiler'] ?? 0;
+        final p_ofda = (data['p_ofda'] != null)
+            ? double.parse(
+                data['p_ofda'].toStringAsFixed(1)) // Memastikan data desimal
+            : 0.0; // Jika null, default 0.0        final boiler = data['boiler'] ?? 0;
         final ofda = data['ofda'] ?? 0;
         final oiless = data['oiless'] ?? 0;
         final timestamp = DateTime.now();
@@ -83,6 +86,9 @@ class DataService {
       int ofda,
       int oiless,
       DateTime timestamp) async {
+    // Format tanggal yang lebih mudah dibaca
+    final DateFormat formatter = DateFormat('dd/MM/yy HH:mm');
+    final String formattedTimestamp = formatter.format(timestamp);
     // Buka atau buat box bernama 'sensorDataBox'
     final sensorDataBox = await Hive.openBox('sensorDataBox');
 
@@ -95,7 +101,7 @@ class DataService {
       'tk103': tk103,
       'pwg': pwg,
       'p_ofda': p_ofda,
-      'timestamp': timestamp.toIso8601String(),
+      'timestamp': formattedTimestamp,
     };
     sensorDataList.add(sensorData); // Append data baru ke dalam list
     await sensorDataBox.put(
@@ -106,7 +112,7 @@ class DataService {
       'boiler': boiler,
       'ofda': ofda,
       'oiless': oiless,
-      'timestamp': timestamp.toIso8601String(),
+      'timestamp': formattedTimestamp,
     };
     await sensorDataBox.put(
         'sensorStatus', sensorStatus); // Replace data status
@@ -155,7 +161,8 @@ class DataService {
       int boiler, int ofda, int oiless, DateTime timestamp) async {
     const double minRange = 65.0;
     const double maxRange = 80.0;
-
+    final DateFormat formatter = DateFormat('dd/MM/yy HH:mm');
+    final String formattedTimestamp = formatter.format(timestamp);
     final box =
         Hive.box('alarmHistoryBox'); // Box untuk menyimpan riwayat alarm
     // final settingsBox = await Hive.openBox('settingsBox');
@@ -173,7 +180,7 @@ class DataService {
     if (task1Enabled && boiler == 0) {
       await sendAlarmNotification("Warning: Boiler System Abnormal");
       box.add({
-        'timestamp': DateTime.now(),
+        'timestamp': formattedTimestamp,
         'alarmName': 'boiler',
         'sensorValue': boiler,
       });
@@ -181,7 +188,7 @@ class DataService {
     if (task2Enabled && ofda == 0) {
       await sendAlarmNotification("Warning: OFDA System Abnormal");
       box.add({
-        'timestamp': DateTime.now(),
+        'timestamp': formattedTimestamp,
         'alarmName': 'ofda',
         'sensorValue': ofda,
       });
@@ -189,7 +196,7 @@ class DataService {
     if (task3Enabled && oiless == 0) {
       await sendAlarmNotification("Warning: Oiless System Abnormal");
       box.add({
-        'timestamp': DateTime.now(),
+        'timestamp': formattedTimestamp,
         'alarmName': 'oiless',
         'sensorValue': oiless,
       });
@@ -197,7 +204,7 @@ class DataService {
     if (task4Enabled && (tk201 < minRange || tk201 > maxRange)) {
       await sendAlarmNotification("Warning: tk201 out of range: $tk201");
       box.add({
-        'timestamp': DateTime.now(),
+        'timestamp': formattedTimestamp,
         'alarmName': 'tk201',
         'sensorValue': tk201,
       });
@@ -205,7 +212,7 @@ class DataService {
     if (task5Enabled && (tk202 < minRange || tk202 > maxRange)) {
       await sendAlarmNotification("Warning: tk202 out of range: $tk202");
       box.add({
-        'timestamp': DateTime.now(),
+        'timestamp': formattedTimestamp,
         'alarmName': 'tk202',
         'sensorValue': tk202,
       });
@@ -213,15 +220,14 @@ class DataService {
     if (task6Enabled && (tk103 < minRange || tk103 > maxRange)) {
       await sendAlarmNotification("Warning: tk103 out of range: $tk103");
       box.add({
-        'timestamp': DateTime.now(),
+        'timestamp': formattedTimestamp,
         'alarmName': 'tk103',
         'sensorValue': tk103,
       });
     }
   }
+
+  // Fungs
 }
   // ----------------------------------------------------------------
-
-//MaSIH ERROR ALARM SETTING LOAD, UNTUK FUNGSI NYA UDH DIPINDAH DARI HOMEPAGE KE SINI
-// Coba manggil si checkalarmnya terpisah jangan didalam fetch data
 
