@@ -618,7 +618,6 @@ class _HomePageState extends State<HomePage> {
                           icon: const Icon(Icons.delete,
                               color: Color(0xFF532F8F)),
                           onPressed: () {
-                            // Menghapus alarm dari Hive menggunakan kunci yang tepat
                             box.delete(key);
                           },
                         ),
@@ -1061,7 +1060,7 @@ class _HomePageState extends State<HomePage> {
                 // Smooth Page Indicator
                 Padding(
                   padding: const EdgeInsets.only(
-                      bottom: 76.0), // Atur jarak sesuai kebutuhan
+                      bottom: 2.0), // Atur jarak sesuai kebutuhan
                   child: SmoothPageIndicator(
                     controller: _pageController,
                     count: 4, // Jumlah halaman yang ada di PageView

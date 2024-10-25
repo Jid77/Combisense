@@ -128,7 +128,7 @@ void onStart(ServiceInstance service) async {
   SharedPreferences prefs = await SharedPreferences.getInstance();
 
   // Interval untuk menjalankan background task
-  Timer.periodic(const Duration(seconds: 35), (timer) async {
+  Timer.periodic(const Duration(minutes: 10), (timer) async {
     final dataService = DataService();
 
     await executeFetchData();
