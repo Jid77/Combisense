@@ -49,9 +49,12 @@ class DataService {
         final p_ofda = (data['p_ofda'] != null)
             ? double.parse(
                 data['p_ofda'].toStringAsFixed(1)) // Memastikan data desimal
-            : 0.0; // Jika null, default 0.0        final boiler = data['boiler'] ?? 0;
+            : 0.0; // Jika null, default 0.0
+        final boiler = data['boiler'] ?? 0;
+
         final ofda = data['ofda'] ?? 0;
         final oiless = data['oiless'] ?? 0;
+
         final timestamp = DateTime.now();
 
         // Simpan data, tk201, tk202, dan tk103 di-append, boiler, ofda, dan oiless di-replace
@@ -59,8 +62,6 @@ class DataService {
             tk201, tk202, tk103, pwg, p_ofda, boiler, ofda, oiless, timestamp);
 
         // // Load pengaturan alarm dan cek kondisi alarm
-        // await checkAlarmCondition(
-        //     tk201, tk202, tk103, boiler, ofda, oiless, timestamp);
 
         // Panggil callback dengan data yang diterima
         updateCallback(boiler.toInt(), oiless.toInt(), ofda.toInt(), tk201,
@@ -70,6 +71,9 @@ class DataService {
         _boilerStreamController.add(boiler.toInt());
         _oilessStreamController.add(oiless.toInt());
         _ofdaStreamController.add(ofda.toInt());
+
+        await checkAlarmCondition(
+            tk201, tk202, tk103, boiler, ofda, oiless, timestamp);
       }
     } catch (e) {
       print("Error fetching data from Firebase: $e");
@@ -89,7 +93,6 @@ class DataService {
     // Format tanggal yang lebih mudah dibaca
     final DateFormat formatter = DateFormat('dd/MM/yy HH:mm');
     final String formattedTimestamp = formatter.format(timestamp);
-    // Buka atau buat box bernama 'sensorDataBox'
     final sensorDataBox = await Hive.openBox('sensorDataBox');
 
     // Simpan data tk201, tk202, tk103 dengan append (tambahkan ke list)
@@ -174,13 +177,15 @@ class DataService {
     final task4Enabled = prefs.getBool("task4") ?? false;
     final task5Enabled = prefs.getBool("task5") ?? false;
     final task6Enabled = prefs.getBool("task6") ?? false;
+    final task7Enabled = prefs.getBool("task7") ?? false;
 
-    print(" switch tk202 ${task5Enabled}, switch boiler ${task1Enabled}");
+    // print(" switch tk202 ${task5Enabled}, switch boiler ${task1Enabled}");
+    // print("data $box");
 
     if (task1Enabled && boiler == 0) {
       await sendAlarmNotification("Warning: Boiler System Abnormal");
       box.add({
-        'timestamp': formattedTimestamp,
+        'timestamp': DateTime.now(),
         'alarmName': 'boiler',
         'sensorValue': boiler,
       });
@@ -188,7 +193,7 @@ class DataService {
     if (task2Enabled && ofda == 0) {
       await sendAlarmNotification("Warning: OFDA System Abnormal");
       box.add({
-        'timestamp': formattedTimestamp,
+        'timestamp': DateTime.now(),
         'alarmName': 'ofda',
         'sensorValue': ofda,
       });
@@ -196,7 +201,7 @@ class DataService {
     if (task3Enabled && oiless == 0) {
       await sendAlarmNotification("Warning: Oiless System Abnormal");
       box.add({
-        'timestamp': formattedTimestamp,
+        'timestamp': DateTime.now(),
         'alarmName': 'oiless',
         'sensorValue': oiless,
       });
@@ -204,7 +209,7 @@ class DataService {
     if (task4Enabled && (tk201 < minRange || tk201 > maxRange)) {
       await sendAlarmNotification("Warning: tk201 out of range: $tk201");
       box.add({
-        'timestamp': formattedTimestamp,
+        'timestamp': DateTime.now(),
         'alarmName': 'tk201',
         'sensorValue': tk201,
       });
@@ -212,7 +217,7 @@ class DataService {
     if (task5Enabled && (tk202 < minRange || tk202 > maxRange)) {
       await sendAlarmNotification("Warning: tk202 out of range: $tk202");
       box.add({
-        'timestamp': formattedTimestamp,
+        'timestamp': DateTime.now(),
         'alarmName': 'tk202',
         'sensorValue': tk202,
       });
@@ -220,7 +225,15 @@ class DataService {
     if (task6Enabled && (tk103 < minRange || tk103 > maxRange)) {
       await sendAlarmNotification("Warning: tk103 out of range: $tk103");
       box.add({
-        'timestamp': formattedTimestamp,
+        'timestamp': DateTime.now(),
+        'alarmName': 'tk103',
+        'sensorValue': tk103,
+      });
+    }
+    if (task7Enabled && (pwg < minRange || pwg > maxRange)) {
+      await sendAlarmNotification("Warning: Hotloop Tank out of range: $pwg");
+      box.add({
+        'timestamp': DateTime.now(),
         'alarmName': 'tk103',
         'sensorValue': tk103,
       });
@@ -229,5 +242,4 @@ class DataService {
 
   // Fungs
 }
-  // ----------------------------------------------------------------
-
+// ----------------------------------------------------------------

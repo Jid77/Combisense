@@ -12,6 +12,7 @@ import 'package:intl/intl.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:aplikasitest1/pages/home_page.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
@@ -39,11 +40,32 @@ void main() async {
   await Hive.openBox('alarmHistoryBox');
   await Hive.openBox('settingsBox');
 
+  await requestNotificationPermission();
+
   // Inisialisasi background service
   await initializeService();
 
   // Jalankan aplikasi Flutter
   runApp(MyApp());
+}
+
+// Fungsi untuk meminta izin notifikasi
+Future<void> requestNotificationPermission() async {
+  var status = await Permission.notification.status;
+
+  if (!status.isGranted) {
+    // Meminta izin notifikasi
+    await Permission.notification.request();
+
+    // Mengecek kembali status izin setelah permintaan
+    if (await Permission.notification.isGranted) {
+      print("Izin notifikasi diberikan!");
+    } else {
+      print("Izin notifikasi ditolak.");
+    }
+  } else {
+    print("Izin notifikasi sudah diberikan.");
+  }
 }
 
 // Fungsi untuk inisialisasi background service
@@ -81,7 +103,7 @@ void onStart(ServiceInstance service) async {
     await Hive.initFlutter();
     await Hive.openBox('sensorDataBox');
     await Hive.openBox('alarmHistoryBox');
-    await Hive.openBox('settingsBox');
+    // await Hive.openBox('settingsBox');
   } catch (e) {
     print("Error opening Hive box: $e");
   }
@@ -106,11 +128,12 @@ void onStart(ServiceInstance service) async {
   SharedPreferences prefs = await SharedPreferences.getInstance();
 
   // Interval untuk menjalankan background task
-  Timer.periodic(const Duration(seconds: 15), (timer) async {
+  Timer.periodic(const Duration(seconds: 35), (timer) async {
     final dataService = DataService();
+
     await executeFetchData();
-    await dataService.checkAlarmCondition(
-        tk201, tk202, tk103, boiler, ofda, oiless, DateTime.now());
+    // await dataService.checkAlarmCondition(
+    //     tk201, tk202, tk103, boiler, ofda, oiless, DateTime.now());
 
     // // Hanya jalankan jika service dalam mode foreground
     // if (service is AndroidServiceInstance) {
@@ -145,6 +168,9 @@ void onStart(ServiceInstance service) async {
     }
     if (event["task6"] != null) {
       await prefs.setBool("task6", event["task6"]);
+    }
+    if (event["task7"] != null) {
+      await prefs.setBool("task7", event["task7"]);
     }
   });
 }

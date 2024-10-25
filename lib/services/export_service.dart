@@ -56,17 +56,15 @@ class ExportService {
       {required DateTime startDate, required DateTime endDate}) async {
     await requestStoragePermission(context);
 
-    // Log start and end date for debugging
-    print('Start Date: $startDate, End Date: $endDate');
-
     final sensorDataBox = await Hive.box('sensorDataBox');
     final sensorDataList =
         sensorDataBox.get('sensorDataList', defaultValue: []);
 
     var excel = Excel.createExcel();
-    Sheet sheetObject = excel['Sensor Data'];
+    Sheet sensorSheet = excel['Sensor Data'];
+    Sheet alarmSheet = excel['Alarm History'];
 
-    List<String> headers = [
+    List<String> sensorHeaders = [
       'Timestamp',
       'Tk201',
       'Tk202',
@@ -74,10 +72,12 @@ class ExportService {
       'PWG',
       'P_OFDA'
     ];
-    sheetObject.appendRow(headers);
+    sensorSheet.appendRow(sensorHeaders);
 
-    bool dataFound = false;
+    List<String> alarmHeaders = ['Timestamp', 'Alarm Name', 'Sensor Value'];
+    alarmSheet.appendRow(alarmHeaders);
 
+    // Mengisi data sensor
     for (var data in sensorDataList) {
       String timestampString = data['timestamp'];
       DateTime? timestamp;
@@ -87,9 +87,6 @@ class ExportService {
       } catch (e) {
         continue; // Skip if parsing fails
       }
-
-      // Log timestamp to check against the range
-      print('Checking timestamp: $timestamp');
 
       if (timestamp.isAfter(startDate) &&
           timestamp.isBefore(endDate.add(Duration(days: 1)))) {
@@ -101,27 +98,29 @@ class ExportService {
           data['pwg'],
           data['p_ofda'],
         ];
-        sheetObject.appendRow(row);
-        dataFound = true;
-      } else {
-        print('Timestamp di luar rentang: $timestamp');
+        sensorSheet.appendRow(row);
       }
     }
 
-    if (!dataFound) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content:
-                Text('Tidak ada data yang cocok untuk rentang tanggal ini.')),
-      );
-      return; // Keluar dari fungsi jika tidak ada data yang diekspor
+    // Mengisi data alarm history
+    final alarmHistoryBox = await Hive.box('alarmHistoryBox');
+    List<dynamic> alarmHistoryList =
+        alarmHistoryBox.values.toList(); // Mengambil semua nilai di box
+
+    for (var alarm in alarmHistoryList) {
+      String alarmTimestampString =
+          DateFormat('dd/MM/yyyy HH:mm').format(alarm['timestamp']);
+      String alarmName = alarm['alarmName'];
+      dynamic sensorValue = alarm['sensorValue'];
+
+      alarmSheet.appendRow([alarmTimestampString, alarmName, sensorValue]);
     }
 
+    // Simpan file Excel
     try {
       final directory = Directory('/storage/emulated/0/Download/combiphar');
       final filePath = '${directory.path}/exported_data.xlsx';
 
-      // Simpan file Excel di penyimpanan lokal
       File(filePath)
         ..createSync(recursive: true)
         ..writeAsBytesSync(excel.encode()!);

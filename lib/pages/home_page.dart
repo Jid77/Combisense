@@ -69,6 +69,8 @@ class _HomePageState extends State<HomePage> {
   bool isTask4On = false;
   bool isTask5On = false;
   bool isTask6On = false;
+  bool isTask7On = false;
+
   //  excel - timestamp
   final ExportService _exportService = ExportService();
   DateTimeRange? selectedDateRange;
@@ -80,7 +82,7 @@ class _HomePageState extends State<HomePage> {
     _initHive(); // Inisialisasi Hive sebelum digunakan
     _loadSwitchState();
     _startListening();
-
+    printAlarmHistory();
     // Timer.periodic(const Duration(seconds: 27), (timer) {
     //   // _loadDataFromHive();
     //   // print("Isi Hive periodic: ${_sensorDataBox.toMap()}");
@@ -91,6 +93,7 @@ class _HomePageState extends State<HomePage> {
   Future<void> _initHive() async {
     await Hive.openBox(
         'sensorDataBox'); // Buka Hive Box bernama 'sensorDataBox'
+    await Hive.openBox('alarmHistoryBox');
   }
 
   Future<void> _loadData() async {
@@ -166,6 +169,7 @@ class _HomePageState extends State<HomePage> {
       isTask4On = prefs.getBool("task4") ?? false;
       isTask5On = prefs.getBool("task5") ?? false;
       isTask6On = prefs.getBool("task6") ?? false;
+      isTask7On = prefs.getBool("task7") ?? false;
     });
   }
 
@@ -177,6 +181,7 @@ class _HomePageState extends State<HomePage> {
       "task4": isTask4On,
       "task5": isTask5On,
       "task6": isTask6On,
+      "task7": isTask7On,
     });
   }
 
@@ -262,82 +267,74 @@ class _HomePageState extends State<HomePage> {
               : _selectedIndex == 1
                   ? _buildHistoryContent()
                   : _buildAlarmSwitchContent(),
-
-          // Bottom Navigation Bar
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: Container(
-              margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(35),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Colors.black26,
-                    blurRadius: 10,
-                    offset: Offset(0, -3),
-                  ),
-                ],
-              ),
-              child: BottomNavigationBar(
-                currentIndex: _selectedIndex,
-                onTap: _onBottomNavTapped,
-                items: [
-                  BottomNavigationBarItem(
-                    icon: SvgPicture.asset(
-                      'assets/images/homefull.svg',
-                      color: _selectedIndex == 0
-                          ? const Color(0xFF532F8F)
-                          : Colors.black54,
-                      width: 20,
-                      height: 20,
-                    ),
-                    label: 'Home',
-                  ),
-                  const BottomNavigationBarItem(
-                    icon: Icon(Icons.history_sharp, size: 26),
-                    label: 'History',
-                  ),
-                  const BottomNavigationBarItem(
-                    icon: Icon(Icons.settings, size: 26),
-                    label: 'Setting',
-                  ),
-                ],
-                selectedItemColor: const Color(0xFF532F8F),
-                unselectedItemColor: Colors.black54,
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-                type: BottomNavigationBarType.fixed,
-              ),
-            ),
-          ),
         ],
+      ),
+      bottomNavigationBar: Container(
+        margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(35),
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black26,
+              blurRadius: 10,
+              offset: Offset(0, -3),
+            ),
+          ],
+        ),
+        child: BottomNavigationBar(
+          currentIndex: _selectedIndex,
+          onTap: _onBottomNavTapped,
+          items: [
+            BottomNavigationBarItem(
+              icon: SvgPicture.asset(
+                'assets/images/homefull.svg',
+                color: _selectedIndex == 0
+                    ? const Color(0xFF532F8F)
+                    : Colors.black54,
+                width: 20,
+                height: 20,
+              ),
+              label: 'Home',
+            ),
+            const BottomNavigationBarItem(
+              icon: Icon(Icons.history_sharp, size: 26),
+              label: 'History',
+            ),
+            const BottomNavigationBarItem(
+              icon: Icon(Icons.settings, size: 26),
+              label: 'Setting',
+            ),
+          ],
+          selectedItemColor: const Color(0xFF532F8F),
+          unselectedItemColor: Colors.black54,
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          type: BottomNavigationBarType.fixed,
+        ),
       ),
     );
   }
 
   Widget _buildAlarmSwitchContent() {
     return Padding(
-      padding:
-          const EdgeInsets.only(top: 190.0, left: 16, right: 16, bottom: 16),
+      padding: const EdgeInsets.only(top: 185.0, left: 16, right: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Notification Alarm Settings',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            'Settings',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
           const Divider(
             thickness: 2, // Ketebalan garis
             color: Colors.black, // Warna garis
             indent: 0, // Jarak dari tepi kiri
-            endIndent: 150, // Jarak dari tepi kanan
+            endIndent: 300, // Jarak dari tepi kanan
           ),
-          const SizedBox(height: 10),
+          // const SizedBox(height: 10),
           Center(
-            child: ElevatedButton(
+            child: ElevatedButton.icon(
               onPressed: () async {
                 // Tampilkan dialog untuk memilih rentang waktu
                 DateTimeRange? dateRange = await showDateRangePicker(
@@ -357,11 +354,25 @@ class _HomePageState extends State<HomePage> {
                   );
                 }
               },
-              child: Text('Export to Excel'),
+              icon: const Icon(Icons.download, size: 24), // Icon download
+              label: const Text(
+                'Export data sensor',
+                style: TextStyle(fontSize: 16), // Ukuran font
+              ),
+              style: ElevatedButton.styleFrom(
+                foregroundColor: Colors.white,
+                backgroundColor: const Color(0xFF8547b0), // Warna teks
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 24, vertical: 12), // Padding tombol
+                elevation: 5, // Elevasi untuk efek bayangan
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(32), // Sudut melengkung
+                ),
+                shadowColor: Colors.grey.withOpacity(0.5), // Warna bayangan
+              ),
             ),
           ),
           const SizedBox(height: 10), // Space between button and switches
-          const SizedBox(height: 5),
           _buildAlarmSwitch(
             title: 'Boiler Notification',
             value: isTask1On,
@@ -388,6 +399,16 @@ class _HomePageState extends State<HomePage> {
             onChanged: (value) {
               setState(() {
                 isTask3On = value;
+                updateServiceData(); // Update data ke background service
+              });
+            },
+          ),
+          _buildAlarmSwitch(
+            title: 'PWG Hotloop Tank ',
+            value: isTask7On,
+            onChanged: (value) {
+              setState(() {
+                isTask7On = value;
                 updateServiceData(); // Update data ke background service
               });
             },
@@ -433,21 +454,21 @@ class _HomePageState extends State<HomePage> {
     required ValueChanged<bool> onChanged,
   }) {
     return Card(
-      elevation: 4, // Bayangan kotak
+      elevation: 3, // Bayangan kotak
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(32), // Sudut yang membulat
       ),
       color: const Color.fromARGB(255, 255, 255, 255),
 
-      margin: const EdgeInsets.symmetric(vertical: 8), // Jarak antar switch
+      margin: const EdgeInsets.symmetric(vertical: 2), // Jarak antar switch
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 10),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
               title,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             ),
             Switch(
               value: value,
@@ -466,85 +487,110 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  void printAlarmHistory() {
+    final box =
+        Hive.box('alarmHistoryBox'); // Ganti dengan nama box yang sesuai
+    final alarmEntries = box.toMap(); // Mengambil semua data dalam bentuk map
+
+    // Mencetak setiap entri di box
+    alarmEntries.forEach((key, value) {
+      print('Key: $key');
+      print('Alarm Entry: $value');
+    });
+  }
+
   Widget _buildHistoryContent() {
     return Padding(
       padding:
           const EdgeInsets.only(top: 185.0), // Sesuaikan dengan tinggi app bar
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start, // Align ke kiri
-        children: [
-          // Menambahkan judul halaman
-          Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16.0), // Jarak dari tepi
-            child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start, // Align teks ke kiri
-              children: [
-                Text(
-                  'Alarm History', // Judul halaman
-                  style: const TextStyle(
-                    fontSize: 20, // Ukuran font untuk judul
-                    fontWeight: FontWeight.bold, // Membuat judul menjadi tebal
-                    color: Color.fromARGB(255, 0, 0, 0), // Warna judul
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start, // Align ke kiri
+          children: [
+            // Menambahkan judul halaman
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 16.0), // Jarak dari tepi
+              child: Column(
+                crossAxisAlignment:
+                    CrossAxisAlignment.start, // Align teks ke kiri
+                children: [
+                  Text(
+                    'Alarm History', // Judul halaman
+                    style: const TextStyle(
+                      fontSize: 20, // Ukuran font untuk judul
+                      fontWeight:
+                          FontWeight.bold, // Membuat judul menjadi tebal
+                      color: Color.fromARGB(255, 0, 0, 0), // Warna judul
+                    ),
                   ),
-                ),
-                SizedBox(height: 4), // Jarak antara teks dan garis
-                Divider(
-                  thickness: 2, // Ketebalan garis
-                  color: Colors.black, // Warna garis
-                  indent: 0, // Jarak dari tepi kiri
-                  endIndent: 280, // Jarak dari tepi kanan
-                ),
-              ],
+                  Divider(
+                    thickness: 2, // Ketebalan garis
+                    color: Colors.black, // Warna garis
+                    indent: 0, // Jarak dari tepi kiri
+                    endIndent: 280, // Jarak dari tepi kanan
+                  ),
+                ],
+              ),
             ),
-          ),
-          // Tambahkan sedikit jarak antara judul dan list
-          // const SizedBox(height: 16),
 
-          // List alarm
-          Expanded(
-            child: ValueListenableBuilder(
+            // List alarm
+            // Padding(
+            //   padding: const EdgeInsets.only(
+            //       bottom: 68.0), // Padding bottom untuk setiap item
+            ValueListenableBuilder(
               valueListenable: _alarmHistoryBox.listenable(),
               builder: (context, Box box, _) {
                 final alarmEntries = box.toMap().entries.toList();
+                if (alarmEntries.isEmpty) {
+                  return Center(
+                    child: Text(
+                      'No alarm history found.', // Pesan placeholder
+                      style: TextStyle(fontSize: 16, color: Colors.grey),
+                    ),
+                  );
+                }
+
+                // Fungsi untuk memformat atau memparsing timestamp
+                DateTime parseTimestamp(dynamic timestamp) {
+                  if (timestamp is DateTime) {
+                    return timestamp;
+                  } else if (timestamp is String) {
+                    try {
+                      return DateFormat('yyyy-MM-dd HH:mm:ss').parse(timestamp);
+                    } catch (e) {
+                      print('Error parsing timestamp: $e');
+                      return DateTime.now(); // Atau nilai default
+                    }
+                  } else {
+                    return DateTime.now();
+                  }
+                }
 
                 // Mengurutkan alarm berdasarkan timestamp, terbaru di atas
                 alarmEntries.sort((a, b) {
-                  DateTime timestampA = a.value['timestamp'] is String
-                      ? DateTime.parse(a.value['timestamp'])
-                      : a.value['timestamp'];
-                  DateTime timestampB = b.value['timestamp'] is String
-                      ? DateTime.parse(b.value['timestamp'])
-                      : b.value['timestamp'];
+                  DateTime timestampA = parseTimestamp(a.value['timestamp']);
+                  DateTime timestampB = parseTimestamp(b.value['timestamp']);
                   return timestampB.compareTo(timestampA);
                 });
 
-                return ListView.builder(
-                  padding: const EdgeInsets.only(
-                      top: 2.0), // Kurangi padding di bagian atas list
-                  itemCount: alarmEntries.length,
-                  itemBuilder: (context, index) {
-                    final entry = alarmEntries[index];
+                // Membuat daftar alarm
+                return Column(
+                  children: alarmEntries.map((entry) {
                     final key = entry.key; // Mengambil kunci dari item
-                    final alarm = entry.value;
 
-                    // Format timestamp ke string
-                    String formattedTimestamp = alarm['timestamp'] is DateTime
-                        ? DateFormat('MMMM dd, yyyy HH:mm WIB')
-                            .format(alarm['timestamp'])
-                        : alarm['timestamp'];
-                    // Judul Alarm
-                    String title;
-                    if (alarm['alarmName'] == 'boiler' ||
-                        alarm['alarmName'] == 'oiless' ||
-                        alarm['alarmName'] == 'ofda') {
-                      title =
-                          alarm['alarmName']; // Hanya menampilkan nama alarm
-                    } else {
-                      title =
-                          '${alarm['alarmName']} - ${alarm['sensorValue']}°'; // Menampilkan nama alarm dan nilai sensor
-                    }
+                    // Melakukan casting ke Map<String, dynamic>
+                    final Map<String, dynamic> alarm =
+                        Map<String, dynamic>.from(entry.value);
+
+                    // Format timestamp ke string sederhana
+                    DateTime timestamp = parseTimestamp(alarm['timestamp']);
+                    String formattedTimestamp =
+                        DateFormat('MMMM dd, yyyy HH:mm WIB').format(timestamp);
+
+                    // Menampilkan nama alarm dan nilai sensor di judul
+                    String title = _buildAlarmTitle(alarm);
+
                     return Card(
                       margin: const EdgeInsets.symmetric(
                           vertical: 4, horizontal: 16),
@@ -578,14 +624,53 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ),
                     );
-                  },
+                  }).toList(),
                 );
               },
             ),
-          ),
-        ],
+            // ),
+          ],
+        ),
       ),
     );
+  }
+
+// Fungsi untuk memparsing timestamp dari alarm
+  DateTime _parseTimestamp(dynamic timestamp) {
+    if (timestamp is DateTime) {
+      // Jika sudah DateTime, langsung dikembalikan
+      return timestamp;
+    } else if (timestamp is String) {
+      // Jika String, coba parsing
+      try {
+        return DateTime.parse(timestamp);
+      } catch (e) {
+        return DateTime
+            .now(); // Jika gagal, gunakan waktu sekarang sebagai fallback
+      }
+    } else {
+      // Fallback jika format tidak valid
+      return DateTime.now();
+    }
+  }
+
+// Fungsi untuk memformat timestamp ke format yang diinginkan
+  String _formatTimestamp(dynamic timestamp) {
+    DateTime date =
+        _parseTimestamp(timestamp); // Pastikan timestamp sudah di-parse
+    return DateFormat('MMMM dd, yyyy HH:mm WIB')
+        .format(date); // Format menjadi string
+  }
+
+// Fungsi untuk membuat judul alarm
+  String _buildAlarmTitle(Map<String, dynamic> alarm) {
+    String alarmName = alarm['alarmName'] ?? 'Unknown Alarm';
+    if (alarmName == 'boiler' || alarmName == 'oiless' || alarmName == 'ofda') {
+      return alarmName; // Hanya menampilkan nama alarm
+    } else {
+      String sensorValue = alarm['sensorValue']?.toString() ?? 'N/A';
+      return '$alarmName - $sensorValue°'; // Menampilkan nama alarm dan nilai sensor
+    }
   }
 
   Widget _buildHomeContent() {
