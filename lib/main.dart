@@ -1,17 +1,14 @@
 import 'dart:async';
-import 'dart:ffi';
-import 'package:aplikasitest1/app.dart';
+import 'package:combisense/app.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
-import 'package:flutter_background_service_android/flutter_background_service_android.dart';
-import 'package:aplikasitest1/services/background_task_service.dart'; // Import background task service
+import 'package:combisense/services/background_task_service.dart'; // Import background task service
 import 'package:hive/hive.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:aplikasitest1/pages/home_page.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -24,10 +21,14 @@ double tk202 = 0;
 double tk103 = 0;
 int boiler = 0;
 int ofda = 0;
-int oiless = 0;
-double pwg = 0;
+int chiller = 0;
+double temp_ahu02lb = 0;
 double p_ofda = 0;
-
+// Tambahkan variabel global jika ingin akses di file lain
+int uf = 0;
+int faultPump = 0;
+int highSurfaceTank = 0;
+int lowSurfaceTank = 0;
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -42,10 +43,8 @@ void main() async {
 
   await requestNotificationPermission();
 
-  // Inisialisasi background service
   await initializeService();
 
-  // Jalankan aplikasi Flutter
   runApp(MyApp());
 }
 
@@ -91,8 +90,6 @@ Future<void> initializeService() async {
 // Fungsi yang akan dijalankan saat background service dimulai
 @pragma('vm:entry-point')
 void onStart(ServiceInstance service) async {
-  final timestamp = DateTime.now();
-
   // Periksa apakah Firebase sudah diinisialisasi
   if (Firebase.apps.isEmpty) {
     await Firebase.initializeApp();
@@ -103,7 +100,6 @@ void onStart(ServiceInstance service) async {
     await Hive.initFlutter();
     await Hive.openBox('sensorDataBox');
     await Hive.openBox('alarmHistoryBox');
-    // await Hive.openBox('settingsBox');
   } catch (e) {
     print("Error opening Hive box: $e");
   }
@@ -122,32 +118,19 @@ void onStart(ServiceInstance service) async {
     // Set notifikasi foreground
     service.setForegroundNotificationInfo(
       title: "Background Service",
-      content: "Running background tasks",
+      content: "Running background time",
     );
   }
   SharedPreferences prefs = await SharedPreferences.getInstance();
 
   // Interval untuk menjalankan background task
   Timer.periodic(const Duration(minutes: 10), (timer) async {
-    final dataService = DataService();
-
-    await executeFetchData();
-    // await dataService.checkAlarmCondition(
-    //     tk201, tk202, tk103, boiler, ofda, oiless, DateTime.now());
-
-    // // Hanya jalankan jika service dalam mode foreground
-    // if (service is AndroidServiceInstance) {
-    //   if (await service.isForegroundService()) {
-    //     print("Running periodic background task");
-
-    //     // Panggil executeFetchData untuk mengambil data
-    //     await executeFetchData();
-
-    //     // // Panggil checkAlarmCondition setelah data diperbarui
-    //     await dataService.checkAlarmCondition(
-    //         tk201, tk202, tk103, boiler, ofda, oiless, DateTime.now());
-    //   }
-    // }
+    if (service is AndroidServiceInstance) {
+      if (await service.isForegroundService()) {
+        print("Running periodic background task");
+        await executeFetchData();
+      }
+    }
   });
   // Listen for data sent from the UI
   service.on('updateData').listen((event) async {
@@ -181,36 +164,54 @@ Future<void> executeFetchData() async {
   List<FlSpot> tk201Data = [];
   List<FlSpot> tk202Data = [];
   List<FlSpot> tk103Data = [];
-  List<FlSpot> pwgData = [];
+  List<FlSpot> temp_ahu02lbData = [];
   List<FlSpot> p_ofdaData = [];
   List<String> timestamps = [];
   DateFormat formatter = DateFormat('yyyy-MM-dd HH:mm:ss');
 
   // Callback untuk update data setelah fetch
   void updateCallback(
-      int newBoiler,
-      int newOiless,
-      int newOfda,
-      double newTk201,
-      double newTk202,
-      double newTk103,
-      double newPwg,
-      double newP_ofda) {
+    int newBoiler,
+    int newChiller,
+    int newOfda,
+    double newTk201,
+    double newTk202,
+    double newTk103,
+    double newTemp_ahu02lb,
+    double newP_ofda,
+    int newUf,
+    int newFaultPump,
+    int newHighSurfaceTank,
+    int newLowSurfaceTank,
+  ) {
     // Simpan data yang diperoleh dari fetchData
     boiler = newBoiler;
-    oiless = newOiless;
+    chiller = newChiller;
     ofda = newOfda;
     tk201 = newTk201;
     tk202 = newTk202;
     tk103 = newTk103;
-    pwg = newPwg;
+    temp_ahu02lb = newTemp_ahu02lb;
     p_ofda = newP_ofda;
+    uf = newUf;
+    faultPump = newFaultPump;
+    highSurfaceTank = newHighSurfaceTank;
+    lowSurfaceTank = newLowSurfaceTank;
 
     print(
-        "Data updated: Boiler: $boiler, Oiless: $oiless, OFDA: $ofda, TK201: $tk201, TK202: $tk202, TK103: $tk103, PWG : $pwg, PressureOfda : $p_ofda");
+        "Data : Boiler: $boiler, Chiller: $chiller, OFDA: $ofda, TK201: $tk201, TK202: $tk202, TK103: $tk103, temp_ahu02lb : $temp_ahu02lb, PressureOfda : $p_ofda, UF: $uf, FaultPump: $faultPump, HighSurfaceTank: $highSurfaceTank, LowSurfaceTank: $lowSurfaceTank");
   }
 
-  // Panggil fetchData terlebih dahulu
-  await dataService.fetchData(0, tk201Data, tk202Data, tk103Data, pwgData,
-      p_ofdaData, timestamps, formatter, updateCallback);
+  // Panggil fetchData dengan parameter baru
+  await dataService.fetchData(
+    0,
+    tk201Data,
+    tk202Data,
+    tk103Data,
+    temp_ahu02lbData,
+    p_ofdaData,
+    timestamps,
+    formatter,
+    updateCallback,
+  );
 }

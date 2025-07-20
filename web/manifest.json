@@ -1,6 +1,6 @@
 {
-    "name": "aplikasitest1",
-    "short_name": "aplikasitest1",
+    "name": "combisense",
+    "short_name": "combisense",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

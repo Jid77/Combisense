@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_database/firebase_database.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'dart:async';
@@ -7,12 +6,15 @@ import 'package:hive/hive.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:aplikasitest1/services/background_task_service.dart';
+import 'package:combisense/services/background_task_service.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
-import 'package:aplikasitest1/widgets/background_wave.dart';
+import 'package:combisense/widgets/background_wave.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:aplikasitest1/services/export_service.dart';
+import 'package:combisense/services/export_service.dart';
+import '../widgets/circular_value.dart';
+import '../widgets/status_text.dart';
+import '../widgets/legend_dot.dart';
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
@@ -25,22 +27,13 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  static final GlobalKey<_HomePageState> _key = GlobalKey<_HomePageState>();
-
-  final DatabaseReference _database = FirebaseDatabase.instance.ref();
   // Deklarasikan _dataService sebagai variabel instance
-  final DataService _dataService = DataService();
 
   final List<FlSpot> _tk201Data = [];
   final List<FlSpot> _tk202Data = [];
   final List<FlSpot> _tk103Data = [];
-  final List<FlSpot> _pwgData = [];
-  final List<FlSpot> _p_ofdaData = [];
-  int _boilerStatus = 0;
-  int _ofdaStatus = 0;
-  int _oilessStatus = 0;
-  final List<String> _timestamps = [];
-  int _index = 0;
+  final List<FlSpot> _temp_ahu02lbData = [];
+  final List<FlSpot> _rh_ahu02lbData = [];
 
   late Timer _timer;
   late Box _sensorDataBox;
@@ -54,14 +47,17 @@ class _HomePageState extends State<HomePage> {
 
   // data
   int boiler = 0;
-  int oiless = 0;
+  int chiller = 0;
   int ofda = 0;
   double tk201 = 0;
   double tk202 = 0;
   double tk103 = 0;
-  double pwg = 0;
-  double p_ofda = 0;
-
+  double temp_ahu02lb = 0;
+  double rh_ahu02lb = 0;
+  int uf = 0;
+  int faultPump = 0;
+  int highSurfaceTank = 0;
+  int lowSurfaceTank = 0;
   // State untuk mengontrol status alarm
   bool isTask1On = false;
   bool isTask2On = false;
@@ -70,22 +66,34 @@ class _HomePageState extends State<HomePage> {
   bool isTask5On = false;
   bool isTask6On = false;
   bool isTask7On = false;
-
+  bool isTask8On = false; // UF
+  bool isTask9On = false; // Fault Pump
+  bool isTask10On = false; // Surface Tank (high & low)
   //  excel - timestamp
-  final ExportService _exportService = ExportService();
   DateTimeRange? selectedDateRange;
   @override
   void initState() {
     super.initState();
-    // _sensorDataBox = Hive.box('sensorDataBox');
+    _sensorDataBox = Hive.box('sensorDataBox');
     _alarmHistoryBox = Hive.box('alarmHistoryBox');
-    _initHive(); // Inisialisasi Hive sebelum digunakan
+    // _initHive(); // Inisialisasi Hive sebelum digunakan
     _loadSwitchState();
-    _startListening();
+    executeFetchData();
+    // _startListening();
     printAlarmHistory();
-    // Timer.periodic(const Duration(seconds: 27), (timer) {
-    //   // _loadDataFromHive();
-    //   // print("Isi Hive periodic: ${_sensorDataBox.toMap()}");
+    // Menambahkan listener untuk update UI saat data Hive berubah
+    // _sensorDataBox.listenable().addListener(() {
+    //   setState(() {}); // Memicu pembaruan UI
+    // });
+    // Timer.periodic(const Duration(minutes: 1), (timer) async {
+    //   // _startListening();
+    //   await executeFetchData();
+    //   // await _dataService.checkAlarmCondition(
+    //   //     tk201, tk202, tk103, boiler, ofda, chiller, DateTime.now());
+    //   // printAlarmHistory();
+
+    //   //   // _loadDataFromHive();
+    //   //   // print("Isi Hive periodic: ${_sensorDataBox.toMap()}");
     // });
     _isLoading = false;
   }
@@ -96,51 +104,86 @@ class _HomePageState extends State<HomePage> {
     await Hive.openBox('alarmHistoryBox');
   }
 
-  Future<void> _loadData() async {
-    await _dataService.fetchData(
-      0,
-      [],
-      [],
-      [],
-      [],
-      [],
-      [],
-      DateFormat('yyyy-MM-dd HH:mm:ss'),
-      (newBoiler, newOiless, newOfda, newTk201, newTk202, newTk103, newPwg,
-          newP_ofda) {
-        setState(() {
-          boiler = newBoiler;
-          oiless = newOiless;
-          ofda = newOfda;
-          tk201 = newTk201;
-          tk202 = newTk202;
-          tk103 = newTk103;
-          pwg = newPwg;
-          p_ofda = newP_ofda;
-        });
-      },
-    );
+// Fungsi untuk memuat data terbaru dari Hive di awal aplikasi
+  Future<void> _loadInitialData() async {
+    final latestData = _sensorDataBox.get('sensorDataList', defaultValue: []);
+    if (latestData.isNotEmpty) {
+      final data = latestData.last;
+      setState(() {
+        tk201 = data['tk201'];
+        tk202 = data['tk202'];
+        tk103 = data['tk103'];
+        temp_ahu02lb = data['temp_ahu02lb'];
+        rh_ahu02lb = data['rh_ahu02lb'];
+        boiler = data['boiler'];
+        chiller = data['chiller'];
+        ofda = data['ofda'];
+        uf = data['uf'] ?? 0;
+        faultPump = data['fault_pump'] ?? 0;
+        highSurfaceTank = data['high_surface_tank'] ?? 0;
+        lowSurfaceTank = data['low_surface_tank'] ?? 0;
+      });
+    } else {
+      await executeFetchData();
+    }
   }
 
-  void _startListening() {
-    _database.child('sensor_data').onValue.listen((event) {
-      final data = event.snapshot.value as Map<dynamic, dynamic>;
+// Fungsi untuk menjalankan fetchData dari DataService
+  Future<void> executeFetchData() async {
+    final dataService = DataService();
+    List<FlSpot> tk201Data = [];
+    List<FlSpot> tk202Data = [];
+    List<FlSpot> tk103Data = [];
+    List<FlSpot> temp_ahu02lbData = [];
+    List<FlSpot> rh_ahu02lbData = [];
+    List<String> timestamps = [];
+    DateFormat formatter = DateFormat('yyyy-MM-dd HH:mm:ss');
 
-      // Ambil data terbaru
+    // Callback untuk update data setelah fetch
+    void updateCallback(
+      int newBoiler,
+      int newChiller,
+      int newOfda,
+      double newTk201,
+      double newTk202,
+      double newTk103,
+      double newTemp_ahu02lb,
+      double newRh_ahu02lb,
+      int newUf,
+      int newFaultPump,
+      int newHighSurfaceTank,
+      int newLowSurfaceTank,
+    ) {
       setState(() {
-        boiler = data['boiler'] ?? 0;
-        oiless = data['oiless'] ?? 0;
-        ofda = data['ofda'] ?? 0;
-        tk201 = (data['tk201']?.toDouble() ?? 0);
-        tk202 = (data['tk202']?.toDouble() ?? 0);
-        tk103 = (data['tk103']?.toDouble() ?? 0);
-        pwg = (data['pwg']?.toDouble() ?? 0);
-        p_ofda = (data['p_ofda']?.toDouble() ?? 0);
+        boiler = newBoiler;
+        chiller = newChiller;
+        ofda = newOfda;
+        tk201 = newTk201;
+        tk202 = newTk202;
+        tk103 = newTk103;
+        temp_ahu02lb = newTemp_ahu02lb;
+        rh_ahu02lb = newRh_ahu02lb;
+        uf = newUf;
+        faultPump = newFaultPump;
+        highSurfaceTank = newHighSurfaceTank;
+        lowSurfaceTank = newLowSurfaceTank;
       });
 
-      // Simpan data ke Hive
-      _saveDataToHive(data);
-    });
+      print(
+          "Data updated: Boiler: $boiler, Chiller: $chiller, OFDA: $ofda, TK201: $tk201, TK202: $tk202, TK103: $tk103, temp_ahu02lb: $temp_ahu02lb, RH_AHU: $rh_ahu02lb, UF: $uf, FaultPump: $faultPump, HighSurfaceTank: $highSurfaceTank, LowSurfaceTank: $lowSurfaceTank");
+    }
+
+    await dataService.fetchData(
+      0,
+      tk201Data,
+      tk202Data,
+      tk103Data,
+      temp_ahu02lbData,
+      rh_ahu02lbData,
+      timestamps,
+      formatter,
+      updateCallback,
+    );
   }
 
   Future<void> _saveDataToHive(Map<dynamic, dynamic> data) async {
@@ -151,8 +194,8 @@ class _HomePageState extends State<HomePage> {
       'tk201': data['tk201'],
       'tk202': data['tk202'],
       'tk103': data['tk103'],
-      'pwg': data['pwg'],
-      'p_ofda': data['p_ofda'],
+      'temp_ahu02lb': data['temp_ahu02lb'],
+      'rh_ahu02lb': data['rh_ahu02lb'],
       'timestamp': DateTime.now().toIso8601String(),
     };
     sensorDataList.add(sensorData); // Append data baru ke dalam list
@@ -170,6 +213,9 @@ class _HomePageState extends State<HomePage> {
       isTask5On = prefs.getBool("task5") ?? false;
       isTask6On = prefs.getBool("task6") ?? false;
       isTask7On = prefs.getBool("task7") ?? false;
+      isTask8On = prefs.getBool("task8") ?? false;
+      isTask9On = prefs.getBool("task9") ?? false;
+      isTask10On = prefs.getBool("task10") ?? false;
     });
   }
 
@@ -182,6 +228,9 @@ class _HomePageState extends State<HomePage> {
       "task5": isTask5On,
       "task6": isTask6On,
       "task7": isTask7On,
+      "task8": isTask8On,
+      "task9": isTask9On,
+      "task10": isTask10On,
     });
   }
 
@@ -319,170 +368,214 @@ class _HomePageState extends State<HomePage> {
   Widget _buildAlarmSwitchContent() {
     return Padding(
       padding: const EdgeInsets.only(top: 185.0, left: 16, right: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Settings',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-          const Divider(
-            thickness: 2, // Ketebalan garis
-            color: Colors.black, // Warna garis
-            indent: 0, // Jarak dari tepi kiri
-            endIndent: 300, // Jarak dari tepi kanan
-          ),
-          // const SizedBox(height: 10),
-          Center(
-            child: ElevatedButton.icon(
-              onPressed: () async {
-                // Tampilkan dialog untuk memilih rentang waktu
-                DateTimeRange? dateRange = await showDateRangePicker(
-                  context: context,
-                  firstDate: DateTime(2022), // Tanggal awal yang dapat dipilih
-                  lastDate: DateTime.now(), // Tanggal akhir yang dapat dipilih
-                  helpText: 'Pilih Rentang Tanggal',
-                );
-
-                if (dateRange != null) {
-                  final exportService = ExportService();
-                  // Panggil fungsi exportDataToExcel dengan rentang waktu yang dipilih
-                  await exportService.exportDataToExcel(
-                    context,
-                    startDate: dateRange.start,
-                    endDate: dateRange.end,
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Settings',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const Divider(
+              thickness: 2,
+              color: Colors.black,
+              indent: 0,
+              endIndent: 300,
+            ),
+            Center(
+              child: ElevatedButton.icon(
+                onPressed: () async {
+                  DateTimeRange? dateRange = await showDateRangePicker(
+                    context: context,
+                    firstDate: DateTime(2022),
+                    lastDate: DateTime.now(),
+                    helpText: 'Pilih Rentang Tanggal',
                   );
-                }
-              },
-              icon: const Icon(Icons.download, size: 24), // Icon download
-              label: const Text(
-                'Export data sensor',
-                style: TextStyle(fontSize: 16), // Ukuran font
-              ),
-              style: ElevatedButton.styleFrom(
-                foregroundColor: Colors.white,
-                backgroundColor: const Color(0xFF8547b0), // Warna teks
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 24, vertical: 12), // Padding tombol
-                elevation: 5, // Elevasi untuk efek bayangan
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(32), // Sudut melengkung
+                  if (dateRange != null) {
+                    final exportService = ExportService();
+                    await exportService.exportDataToExcel(
+                      context,
+                      startDate: dateRange.start,
+                      endDate: dateRange.end,
+                    );
+                  }
+                },
+                icon: const Icon(Icons.download, size: 24),
+                label: const Text(
+                  'Export data sensor',
+                  style: TextStyle(fontSize: 16),
                 ),
-                shadowColor: Colors.grey.withOpacity(0.5), // Warna bayangan
+                style: ElevatedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  backgroundColor: const Color(0xFF8547b0),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  elevation: 5,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(32),
+                  ),
+                  shadowColor: Colors.grey.withOpacity(0.5),
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 10), // Space between button and switches
-          _buildAlarmSwitch(
-            title: 'Boiler Notification',
-            value: isTask1On,
-            onChanged: (value) {
-              setState(() {
-                isTask1On = value;
-                updateServiceData(); // Update data ke background service
-              });
-            },
-          ),
-          _buildAlarmSwitch(
-            title: 'OFDA Notification',
-            value: isTask2On,
-            onChanged: (value) {
-              setState(() {
-                isTask2On = value;
-                updateServiceData(); // Update data ke background service
-              });
-            },
-          ),
-          _buildAlarmSwitch(
-            title: 'Oiless Notification',
-            value: isTask3On,
-            onChanged: (value) {
-              setState(() {
-                isTask3On = value;
-                updateServiceData(); // Update data ke background service
-              });
-            },
-          ),
-          _buildAlarmSwitch(
-            title: 'PWG Hotloop Tank ',
-            value: isTask7On,
-            onChanged: (value) {
-              setState(() {
-                isTask7On = value;
-                updateServiceData(); // Update data ke background service
-              });
-            },
-          ),
-          _buildAlarmSwitch(
-            title: 'Vent Filter Tk 201 ',
-            value: isTask4On,
-            onChanged: (value) {
-              setState(() {
-                isTask4On = value;
-                updateServiceData(); // Update data ke background service
-              });
-            },
-          ),
-          _buildAlarmSwitch(
-            title: 'Vent Filter Tk 202 ',
-            value: isTask5On,
-            onChanged: (value) {
-              setState(() {
-                isTask5On = value;
-                updateServiceData(); // Update data ke background service
-              });
-            },
-          ),
-          _buildAlarmSwitch(
-            title: 'Vent Filter Tk103 ',
-            value: isTask6On,
-            onChanged: (value) {
-              setState(() {
-                isTask6On = value;
-                updateServiceData(); // Update data ke background service
-              });
-            },
-          ),
-        ],
+            const SizedBox(height: 10),
+            // Satu Card untuk semua switch
+            Card(
+              elevation: 3,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(32),
+              ),
+              color: const Color.fromARGB(255, 255, 255, 255),
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                child: Column(
+                  children: [
+                    _buildAlarmSwitch(
+                      title: 'Boiler Notification',
+                      value: isTask1On,
+                      onChanged: (value) {
+                        setState(() {
+                          isTask1On = value;
+                          updateServiceData();
+                        });
+                        _saveSwitchState("task1", value);
+                      },
+                    ),
+                    _buildAlarmSwitch(
+                      title: 'OFDA Notification',
+                      value: isTask2On,
+                      onChanged: (value) {
+                        setState(() {
+                          isTask2On = value;
+                          updateServiceData();
+                        });
+                        _saveSwitchState("task2", value);
+                      },
+                    ),
+                    _buildAlarmSwitch(
+                      title: 'Chiller Notification',
+                      value: isTask3On,
+                      onChanged: (value) {
+                        setState(() {
+                          isTask3On = value;
+                          updateServiceData();
+                        });
+                        _saveSwitchState("task3", value);
+                      },
+                    ),
+                    _buildAlarmSwitch(
+                      title: 'Tk201 Notification',
+                      value: isTask4On,
+                      onChanged: (value) {
+                        setState(() {
+                          isTask4On = value;
+                          updateServiceData();
+                        });
+                        _saveSwitchState("task4", value);
+                      },
+                    ),
+                    _buildAlarmSwitch(
+                      title: 'Tk202 Notification',
+                      value: isTask5On,
+                      onChanged: (value) {
+                        setState(() {
+                          isTask5On = value;
+                          updateServiceData();
+                        });
+                        _saveSwitchState("task5", value);
+                      },
+                    ),
+                    _buildAlarmSwitch(
+                      title: 'Tk103 Notification',
+                      value: isTask6On,
+                      onChanged: (value) {
+                        setState(() {
+                          isTask6On = value;
+                          updateServiceData();
+                        });
+                        _saveSwitchState("task6", value);
+                      },
+                    ),
+                    _buildAlarmSwitch(
+                      title: 'AHU LB Notification',
+                      value: isTask7On,
+                      onChanged: (value) {
+                        setState(() {
+                          isTask7On = value;
+                          updateServiceData();
+                        });
+                        _saveSwitchState("task7", value);
+                      },
+                    ),
+                    // ...existing code...
+                    _buildAlarmSwitch(
+                      title: 'UF Notification',
+                      value: isTask8On,
+                      onChanged: (value) {
+                        setState(() {
+                          isTask8On = value;
+                          updateServiceData();
+                        });
+                        _saveSwitchState("task8", value);
+                      },
+                    ),
+                    _buildAlarmSwitch(
+                      title: 'Fault Pump Notification',
+                      value: isTask9On,
+                      onChanged: (value) {
+                        setState(() {
+                          isTask9On = value;
+                          updateServiceData();
+                        });
+                        _saveSwitchState("task9", value);
+                      },
+                    ),
+                    _buildAlarmSwitch(
+                      title: 'Surface Tank Notification',
+                      value: isTask10On,
+                      onChanged: (value) {
+                        setState(() {
+                          isTask10On = value;
+                          updateServiceData();
+                        });
+                        _saveSwitchState("task10", value);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
+// Ubah _buildAlarmSwitch agar hanya return Row (tanpa Card)
   Widget _buildAlarmSwitch({
     required String title,
     required bool value,
     required ValueChanged<bool> onChanged,
   }) {
-    return Card(
-      elevation: 3, // Bayangan kotak
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(32), // Sudut yang membulat
-      ),
-      color: const Color.fromARGB(255, 255, 255, 255),
-
-      margin: const EdgeInsets.symmetric(vertical: 2), // Jarak antar switch
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 10),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              title,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-            ),
-            Switch(
-              value: value,
-              onChanged: onChanged,
-              // activeColor: const Color(0xFF6FCF97),
-              activeColor: const Color(0xFF532F8F),
-              inactiveTrackColor: const Color(0xFFFF6B6B),
-              inactiveThumbColor: const Color.fromARGB(
-                  255, 219, 6, 6), // Warna dot saat inactive
-              materialTapTargetSize: MaterialTapTargetSize
-                  .shrinkWrap, // Opsional, agar switch lebih kecil
-            ),
-          ],
-        ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          ),
+          Switch(
+            value: value,
+            onChanged: onChanged,
+            activeColor: const Color(0xFF532F8F),
+            inactiveTrackColor: const Color(0xFFFF6B6B),
+            inactiveThumbColor: const Color.fromARGB(255, 219, 6, 6),
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+        ],
       ),
     );
   }
@@ -542,6 +635,9 @@ class _HomePageState extends State<HomePage> {
               valueListenable: _alarmHistoryBox.listenable(),
               builder: (context, Box box, _) {
                 final alarmEntries = box.toMap().entries.toList();
+                print(
+                    'Updated alarm entries: ${alarmEntries.length}'); // Debug print
+
                 if (alarmEntries.isEmpty) {
                   return Center(
                     child: Text(
@@ -664,7 +760,9 @@ class _HomePageState extends State<HomePage> {
 // Fungsi untuk membuat judul alarm
   String _buildAlarmTitle(Map<String, dynamic> alarm) {
     String alarmName = alarm['alarmName'] ?? 'Unknown Alarm';
-    if (alarmName == 'boiler' || alarmName == 'oiless' || alarmName == 'ofda') {
+    if (alarmName == 'boiler' ||
+        alarmName == 'chiller' ||
+        alarmName == 'ofda') {
       return alarmName; // Hanya menampilkan nama alarm
     } else {
       String sensorValue = alarm['sensorValue']?.toString() ?? 'N/A';
@@ -674,107 +772,83 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildHomeContent() {
     return _isLoading
-        ? const Center(
-            child:
-                CircularProgressIndicator(), // Display loading indicator when fetching data
-          )
+        ? const Center(child: CircularProgressIndicator())
         : Padding(
-            padding: const EdgeInsets.only(
-                top: 150.0), // Sesuaikan dengan tinggi app bar
+            padding: const EdgeInsets.only(top: 178.0),
             child: Column(
               children: [
                 Expanded(
                   child: PageView(
                     controller: _pageController,
                     children: [
-                      // Halaman pertama: Boiler,Oiless
+                      // Halaman pertama: Boiler, Chiller, OFDA
                       Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: SingleChildScrollView(
-                          // Tambahkan SingleChildScrollView di sini
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.all(16.0),
-                                child: SingleChildScrollView(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
-                                    children: [
-                                      Padding(
-                                        padding: const EdgeInsets.all(16.0),
-                                        child: SingleChildScrollView(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.stretch,
-                                            children: [
-                                              // Box untuk status Boiler
-                                              Container(
-                                                padding:
-                                                    const EdgeInsets.all(16.0),
-                                                decoration: BoxDecoration(
-                                                  color: Colors.white,
-                                                  borderRadius:
-                                                      BorderRadius.circular(
-                                                          40.0),
-                                                  boxShadow: [
-                                                    BoxShadow(
-                                                      color: Colors.grey
-                                                          .withOpacity(0.3),
-                                                      spreadRadius: 2,
-                                                      blurRadius: 8,
-                                                      offset:
-                                                          const Offset(0, 3),
-                                                    ),
-                                                  ],
-                                                ),
-                                                child: _buildStatusWidget(
-                                                    'Boiler',
-                                                    boiler,
-                                                    'assets/images/boiler.png',
-                                                    125,
-                                                    200), // Menambahkan assetImage
-                                              ),
-                                              const SizedBox(
-                                                  height:
-                                                      36), // Spasi antar box
-                                              // Box untuk status Oiless
-                                              Container(
-                                                padding:
-                                                    const EdgeInsets.all(16.0),
-                                                decoration: BoxDecoration(
-                                                  color: Colors.white,
-                                                  borderRadius:
-                                                      BorderRadius.circular(
-                                                          40.0),
-                                                  boxShadow: [
-                                                    BoxShadow(
-                                                      color: Colors.grey
-                                                          .withOpacity(0.3),
-                                                      spreadRadius: 2,
-                                                      blurRadius: 8,
-                                                      offset:
-                                                          const Offset(0, 3),
-                                                    ),
-                                                  ],
-                                                ),
-                                                child: _buildStatusWidget(
-                                                    'Oiless',
-                                                    oiless,
-                                                    'assets/images/air-compressor.png',
-                                                    115,
-                                                    140), // Menambahkan assetImage
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ],
+                        padding: const EdgeInsets.all(8.0),
+                        child: RawScrollbar(
+                          thumbVisibility: true,
+                          thickness: 3,
+                          radius: const Radius.circular(10),
+                          thumbColor: const Color(0xFF532F8F).withOpacity(0.8),
+                          fadeDuration: const Duration(milliseconds: 500),
+                          pressDuration: const Duration(milliseconds: 100),
+                          child: SingleChildScrollView(
+                            physics: const BouncingScrollPhysics(),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: GridView.count(
+                                crossAxisCount: 2,
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                mainAxisSpacing: 16,
+                                crossAxisSpacing: 16,
+                                childAspectRatio:
+                                    1.3, // Lebar > tinggi, agar horizontal
+                                children: [
+                                  _buildStatusWidget(
+                                    'Boiler',
+                                    boiler,
+                                    'assets/images/3dboiler.png',
+                                    88,
+                                    88,
                                   ),
-                                ),
+                                  _buildStatusWidget(
+                                    'Ofda',
+                                    ofda,
+                                    'assets/images/3dofda.png',
+                                    78,
+                                    118,
+                                  ),
+                                  _buildStatusWidget(
+                                    'Chiller',
+                                    chiller,
+                                    'assets/images/3dchiller.png',
+                                    78,
+                                    78,
+                                  ),
+                                  _buildStatusWidget(
+                                    'UF',
+                                    ofda,
+                                    'assets/images/3dofda.png',
+                                    78,
+                                    118,
+                                  ),
+                                  _buildStatusWidget(
+                                    'Domestic Tank',
+                                    ofda,
+                                    'assets/images/3dofda.png',
+                                    78,
+                                    118,
+                                  ),
+                                  _buildStatusWidget(
+                                    'Domestic Pump',
+                                    ofda,
+                                    'assets/images/waterpump.png',
+                                    78,
+                                    118,
+                                  ), // Tambahkan parameter lain di sini jika perlu
+                                ],
                               ),
-                            ],
+                            ),
                           ),
                         ),
                       ),
@@ -782,7 +856,7 @@ class _HomePageState extends State<HomePage> {
                       // Halaman kedua: Current Temperature dan Graphic Temperature
                       Padding(
                         padding: const EdgeInsets.only(
-                            top: 25.0, left: 16, right: 16, bottom: 16),
+                            top: 25.0, left: 16, right: 30, bottom: 16),
                         child: SingleChildScrollView(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -794,9 +868,9 @@ class _HomePageState extends State<HomePage> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      "Temperature Vent Filter",
+                                      "Vent Filter",
                                       style: TextStyle(
-                                        fontSize: 18,
+                                        fontSize: 22,
                                         fontWeight: FontWeight.bold,
                                         color: Colors.black,
                                       ),
@@ -871,7 +945,7 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ),
 
-                      // Halaman Ketigaa: PWG - Hot LOOP
+                      // Halaman Ketigaa: temp_ahu02lb - Hot LOOP
                       Padding(
                         padding: const EdgeInsets.only(
                             top: 25.0, left: 16, right: 16, bottom: 16),
@@ -886,9 +960,9 @@ class _HomePageState extends State<HomePage> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      "Temperature Hot Loop",
+                                      "AHU 02 Liquid Building",
                                       style: TextStyle(
-                                        fontSize: 18,
+                                        fontSize: 22,
                                         fontWeight: FontWeight.bold,
                                         color: Colors.black,
                                       ),
@@ -928,7 +1002,7 @@ class _HomePageState extends State<HomePage> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     const Text(
-                                      "Current Temperature",
+                                      "Current Status",
                                       style: TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.bold,
@@ -939,8 +1013,10 @@ class _HomePageState extends State<HomePage> {
                                       mainAxisAlignment:
                                           MainAxisAlignment.spaceAround,
                                       children: [
-                                        _buildCircularValue('', pwg),
-                                        _buildStatusTextPwg(pwg)
+                                        _buildCircularValueTempAhu(
+                                            'Temperature', temp_ahu02lb),
+                                        _buildCircularValueRhAhu(
+                                            'Humidity', rh_ahu02lb),
                                       ],
                                     ),
                                   ],
@@ -950,110 +1026,110 @@ class _HomePageState extends State<HomePage> {
 
                               // Title and Chart
                               const Text(
-                                "Graphic Temperature",
+                                "Graphic Temperature & Humidity",
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
                               const SizedBox(height: 16),
-                              _buildChartPwg(),
+                              _buildChart_ahu02lb(),
                             ],
                           ),
                         ),
                       ),
 
                       // Halaman Keempat: Ofda
-                      Padding(
-                        padding: const EdgeInsets.only(
-                            top: 25.0, left: 16, right: 16, bottom: 16),
-                        child: SingleChildScrollView(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    vertical: 8.0, horizontal: 16.0),
-                                child: const Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      "Pressure Ofda",
-                                      style: TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.black,
-                                      ),
-                                      textAlign: TextAlign.start,
-                                    ),
-                                    SizedBox(
-                                        height:
-                                            4), // Jarak antara teks dan garis
-                                    Divider(
-                                      thickness: 2, // Ketebalan garis
-                                      color: Colors.black, // Warna garis
-                                      indent: 0, // Jarak dari tepi kiri
-                                      endIndent: 150, // Jarak dari tepi kanan
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 10),
+                      // Padding(
+                      //   padding: const EdgeInsets.only(
+                      //       top: 25.0, left: 16, right: 16, bottom: 16),
+                      //   child: SingleChildScrollView(
+                      //     child: Column(
+                      //       crossAxisAlignment: CrossAxisAlignment.stretch,
+                      //       children: [
+                      //         Container(
+                      //           padding: const EdgeInsets.symmetric(
+                      //               vertical: 8.0, horizontal: 16.0),
+                      //           child: const Column(
+                      //             crossAxisAlignment: CrossAxisAlignment.start,
+                      //             children: [
+                      //               Text(
+                      //                 "Pressure Ofda",
+                      //                 style: TextStyle(
+                      //                   fontSize: 18,
+                      //                   fontWeight: FontWeight.bold,
+                      //                   color: Colors.black,
+                      //                 ),
+                      //                 textAlign: TextAlign.start,
+                      //               ),
+                      //               SizedBox(
+                      //                   height:
+                      //                       4), // Jarak antara teks dan garis
+                      //               Divider(
+                      //                 thickness: 2, // Ketebalan garis
+                      //                 color: Colors.black, // Warna garis
+                      //                 indent: 0, // Jarak dari tepi kiri
+                      //                 endIndent: 150, // Jarak dari tepi kanan
+                      //               ),
+                      //             ],
+                      //           ),
+                      //         ),
+                      //         const SizedBox(height: 10),
 
-                              // Container for Current Temperature display
-                              Container(
-                                width: 5,
-                                padding: const EdgeInsets.all(16.0),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(12.0),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.grey.withOpacity(0.3),
-                                      spreadRadius: 2,
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 3),
-                                    ),
-                                  ],
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      "Current Pressure",
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 16),
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceAround,
-                                      children: [
-                                        _buildCircularValueOfda('', p_ofda),
-                                        _buildStatusTextOfda(p_ofda, ofda)
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 16),
+                      //         // Container for Current Temperature display
+                      //         Container(
+                      //           width: 5,
+                      //           padding: const EdgeInsets.all(16.0),
+                      //           decoration: BoxDecoration(
+                      //             color: Colors.white,
+                      //             borderRadius: BorderRadius.circular(12.0),
+                      //             boxShadow: [
+                      //               BoxShadow(
+                      //                 color: Colors.grey.withOpacity(0.3),
+                      //                 spreadRadius: 2,
+                      //                 blurRadius: 8,
+                      //                 offset: const Offset(0, 3),
+                      //               ),
+                      //             ],
+                      //           ),
+                      //           child: Column(
+                      //             crossAxisAlignment: CrossAxisAlignment.start,
+                      //             children: [
+                      //               const Text(
+                      //                 "Current Pressure",
+                      //                 style: TextStyle(
+                      //                   fontSize: 16,
+                      //                   fontWeight: FontWeight.bold,
+                      //                 ),
+                      //               ),
+                      //               const SizedBox(height: 16),
+                      //               Row(
+                      //                 mainAxisAlignment:
+                      //                     MainAxisAlignment.spaceAround,
+                      //                 children: [
+                      //                   _buildCircularValueOfda('', rh_ahu02lb),
+                      //                   _buildStatusTextOfda(rh_ahu02lb, ofda)
+                      //                 ],
+                      //               ),
+                      //             ],
+                      //           ),
+                      //         ),
+                      //         const SizedBox(height: 16),
 
-                              // Title and Chart
-                              const Text(
-                                "Graphic Temperature",
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              _buildChartOfda(),
-                            ],
-                          ),
-                        ),
-                      )
+                      //         // Title and Chart
+                      //         const Text(
+                      //           "Graphic Temperature",
+                      //           style: TextStyle(
+                      //             fontSize: 16,
+                      //             fontWeight: FontWeight.bold,
+                      //           ),
+                      //         ),
+                      //         const SizedBox(height: 16),
+                      //         _buildChartOfda(),
+                      //       ],
+                      //     ),
+                      //   ),
+                      // )
                     ],
                   ),
                 ),
@@ -1063,7 +1139,7 @@ class _HomePageState extends State<HomePage> {
                       bottom: 2.0), // Atur jarak sesuai kebutuhan
                   child: SmoothPageIndicator(
                     controller: _pageController,
-                    count: 4, // Jumlah halaman yang ada di PageView
+                    count: 3, // Jumlah halaman yang ada di PageView
                     effect: WormEffect(
                       dotHeight: 8.0,
                       dotWidth: 8.0,
@@ -1077,56 +1153,65 @@ class _HomePageState extends State<HomePage> {
           );
   }
 
-  Widget _buildStatusWidget(String label, int status, String assetImage,
-      double imageWidth, double imageHeight) {
+  Widget _buildStatusWidget(
+    String label,
+    int status,
+    String assetImage,
+    double imageWidth,
+    double imageHeight,
+  ) {
     return Container(
-      width: 110, // Increased width for better readability
-      height: 200,
-      padding: const EdgeInsets.all(10.0),
+      padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 8.0),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.12),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Gambar di sebelah kiri
           Image.asset(
-            assetImage, // Menggunakan parameter untuk path gambar
-            width: imageWidth, // Ukuran gambar boiler
+            assetImage,
+            width: imageWidth,
             height: imageHeight,
+            fit: BoxFit.contain,
           ),
-          const SizedBox(width: 10), // Jarak antara gambar dan teks
-          // Teks di sebelah kanan
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
-              mainAxisAlignment:
-                  MainAxisAlignment.center, // Memusatkan teks secara vertikal
-              crossAxisAlignment: CrossAxisAlignment
-                  .center, // Memposisikan teks di sebelah kiri
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Text(
                   label,
                   style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w500,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
                     color: Colors.black87,
                   ),
+                  textAlign: TextAlign.center,
+                  maxLines: 2, // Maksimal 2 baris
+                  softWrap: true, // Boleh wrap
+                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 10),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                  width: 22,
+                  height: 22,
                   decoration: BoxDecoration(
                     color: status == 1
-                        ? const Color(
-                            0xFF6FCF97) // Warna hijau untuk status normal
-                        : const Color(
-                            0xFFFF6B6B), // Warna merah untuk status abnormal
-                    borderRadius: BorderRadius.circular(8.0),
-                  ),
-                  child: Text(
-                    status == 1 ? "Normal" : "Abnormal", // Teks status
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
+                        ? const Color(0xFF6FCF97)
+                        : const Color(0xFFFF6B6B),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.black12,
+                      width: 2,
                     ),
                   ),
                 ),
@@ -1155,7 +1240,7 @@ class _HomePageState extends State<HomePage> {
         _tk103Data.clear();
 
         // Tentukan rentang X untuk menampilkan 10 data terbaru
-        int range = 15;
+        int range = 10;
         int totalDataLength = sensorDataList.length;
         int start = (totalDataLength > range) ? totalDataLength - range : 0;
         double minX = 0;
@@ -1288,7 +1373,7 @@ class _HomePageState extends State<HomePage> {
                       LineChartBarData(
                         spots: _tk201Data,
                         isCurved: false,
-                        curveSmoothness: 0.1,
+                        curveSmoothness: 0.2,
                         color: const Color(0xFFed4d9b),
                         dotData: FlDotData(show: false),
                         belowBarData: BarAreaData(show: false),
@@ -1296,7 +1381,7 @@ class _HomePageState extends State<HomePage> {
                       LineChartBarData(
                         spots: _tk202Data,
                         isCurved: false,
-                        curveSmoothness: 0.1,
+                        curveSmoothness: 0.2,
                         color: const Color.fromARGB(255, 77, 237, 184),
                         dotData: FlDotData(show: false),
                         belowBarData: BarAreaData(show: false),
@@ -1304,7 +1389,7 @@ class _HomePageState extends State<HomePage> {
                       LineChartBarData(
                         spots: _tk103Data,
                         isCurved: false,
-                        curveSmoothness: 0.1,
+                        curveSmoothness: 0.2,
                         color: const Color(0xFFC6849B),
                         dotData: FlDotData(show: false),
                         belowBarData: BarAreaData(show: false),
@@ -1333,7 +1418,7 @@ class _HomePageState extends State<HomePage> {
   }
 
 // Widget untuk menampilkan grafik
-  Widget _buildChartPwg() {
+  Widget _buildChart_ahu02lb() {
     return ValueListenableBuilder(
       valueListenable: Hive.box('sensorDataBox').listenable(),
       builder: (context, Box box, _) {
@@ -1344,10 +1429,11 @@ class _HomePageState extends State<HomePage> {
         final sensorDataList = box.get('sensorDataList') as List;
 
         // // Clear previous data
-        _pwgData.clear();
+        _temp_ahu02lbData.clear();
+        _rh_ahu02lbData.clear();
 
         // Tentukan rentang X untuk menampilkan 10 data terbaru
-        int range = 15;
+        int range = 10;
         int totalDataLength = sensorDataList.length;
         int start = (totalDataLength > range) ? totalDataLength - range : 0;
         double minX = 0;
@@ -1356,23 +1442,31 @@ class _HomePageState extends State<HomePage> {
 
         List<String> timeLabels = [];
         // Batasan untuk rentang Y
-        double minY = 60;
-        double maxY = 85;
+        double minY = 15;
+        double maxY = 70;
 
         // Loop dari data terbaru ke terlama, mulai dari index start
         for (int i = start; i < totalDataLength; i++) {
           final sensorData = sensorDataList[i];
 
           // Cek nilai sebelum menambahkannya
-          double pwgValue = sensorData['pwg']?.toDouble() ?? 0;
+          double temp_ahu02lbValue =
+              sensorData['temp_ahu02lb']?.toDouble() ?? 0;
+          double rh_ahu02lbValue = sensorData['rh_ahu02lb']?.toDouble() ?? 0;
 
           var timestampValue = sensorData['timestamp'];
 
           // Pastikan nilai tetap dalam batas minY dan maxY
-          pwgValue = pwgValue.clamp(minY, maxY);
+          temp_ahu02lbValue = temp_ahu02lbValue.clamp(minY, maxY);
+          rh_ahu02lbValue = rh_ahu02lbValue.clamp(minY, maxY);
 
-          if (!pwgValue.isNaN && !pwgValue.isInfinite) {
-            _pwgData.add(FlSpot((i - start).toDouble(), pwgValue));
+          if (!temp_ahu02lbValue.isNaN && !temp_ahu02lbValue.isInfinite) {
+            _temp_ahu02lbData
+                .add(FlSpot((i - start).toDouble(), temp_ahu02lbValue));
+          }
+          if (!rh_ahu02lbValue.isNaN && !rh_ahu02lbValue.isInfinite) {
+            _rh_ahu02lbData
+                .add(FlSpot((i - start).toDouble(), rh_ahu02lbValue));
           }
 
           // Menyimpan timestamp sebagai label waktu
@@ -1468,180 +1562,18 @@ class _HomePageState extends State<HomePage> {
                     maxY: maxY,
                     lineBarsData: [
                       LineChartBarData(
-                        spots: _pwgData,
+                        spots: _temp_ahu02lbData,
                         isCurved: false,
-                        curveSmoothness: 0.1,
+                        curveSmoothness: 0.2,
                         color: const Color(0xFFed4d9b),
                         dotData: FlDotData(show: false),
                         belowBarData: BarAreaData(show: false),
                       ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _buildLegend(
-                      color: const Color(0xFFed4d9b), label: 'Hot Loop Tank'),
-                ],
-              ),
-              const SizedBox(height: 16),
-            ],
-          ),
-        );
-      },
-    );
-  }
-// Widget untuk menampilkan grafik
-
-  Widget _buildChartOfda() {
-    return ValueListenableBuilder(
-      valueListenable: Hive.box('sensorDataBox').listenable(),
-      builder: (context, Box box, _) {
-        if (!box.containsKey('sensorDataList')) {
-          return Center(child: Text("No sensor data available"));
-        }
-
-        final sensorDataList = box.get('sensorDataList') as List;
-
-        // // Clear previous data
-        _p_ofdaData.clear();
-
-        // Tentukan rentang X untuk menampilkan 10 data terbaru
-        int range = 15;
-        int totalDataLength = sensorDataList.length;
-        int start = (totalDataLength > range) ? totalDataLength - range : 0;
-        double minX = 0;
-        double maxX =
-            (totalDataLength > range) ? range - 1 : totalDataLength - 1;
-
-        List<String> timeLabels = [];
-        // Batasan untuk rentang Y
-        double minY = 4;
-        double maxY = 8;
-
-        // Loop dari data terbaru ke terlama, mulai dari index start
-        for (int i = start; i < totalDataLength; i++) {
-          final sensorData = sensorDataList[i];
-
-          // Cek nilai sebelum menambahkannya
-          double ofdaValue = sensorData['p_ofda']?.toDouble() ?? 0;
-
-          // double tk201Value = sensorData['tk201']?.toDouble() ?? 0;
-          // double tk202Value = sensorData['tk202']?.toDouble() ?? 0;
-          // double tk103Value = sensorData['tk103']?.toDouble() ?? 0;
-
-          var timestampValue = sensorData['timestamp'];
-
-          // Pastikan nilai tetap dalam batas minY dan maxY
-          ofdaValue = ofdaValue.clamp(minY, maxY);
-          // tk201Value = tk201Value.clamp(minY, maxY);
-          // tk202Value = tk202Value.clamp(minY, maxY);
-          // tk103Value = tk103Value.clamp(minY, maxY);
-
-          if (!ofdaValue.isNaN && !ofdaValue.isInfinite) {
-            _p_ofdaData.add(FlSpot((i - start).toDouble(), ofdaValue));
-          }
-
-          // Menyimpan timestamp sebagai label waktu
-          if (timestampValue is String) {
-            try {
-              DateTime timestamp =
-                  DateFormat('dd/MM/yyyy HH:mm').parse(timestampValue);
-              timeLabels.add(DateFormat('HH:mm').format(timestamp));
-            } catch (e) {
-              print('Error parsing timestamp: $timestampValue'); // Debugging
-            }
-          }
-        }
-
-        return Container(
-          height: 300, // Tinggi kontainer grafik
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.grey.withOpacity(0.3),
-                spreadRadius: 2,
-                blurRadius: 8,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-          padding: const EdgeInsets.symmetric(
-              horizontal: 2.0), // Menambahkan padding horizontal
-
-          child: Column(
-            children: [
-              Expanded(
-                flex: 8,
-                child: LineChart(
-                  LineChartData(
-                    gridData: FlGridData(show: true),
-                    titlesData: FlTitlesData(
-                      show: true,
-                      leftTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          reservedSize: 30,
-                          getTitlesWidget: (value, meta) {
-                            return Padding(
-                              padding: const EdgeInsets.only(
-                                  top: 50, left: 10, bottom: 45),
-                              child: Text(
-                                value.toInt().toString(),
-                                style: const TextStyle(
-                                    color: Colors.black, fontSize: 12),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                      bottomTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true, // Tampilkan label sumbu bawah
-                          reservedSize: 40,
-                          getTitlesWidget: (value, meta) {
-                            // Pastikan indeks tidak melebihi jumlah data
-                            if (value.toInt() < timeLabels.length) {
-                              return Padding(
-                                padding: const EdgeInsets.only(top: 15),
-                                child: Text(
-                                  timeLabels[value.toInt()],
-                                  style: const TextStyle(
-                                      color: Colors.black, fontSize: 10),
-                                ),
-                              );
-                            } else {
-                              return const SizedBox();
-                            }
-                          },
-                        ),
-                      ),
-                      topTitles: AxisTitles(
-                        sideTitles: SideTitles(showTitles: false),
-                      ),
-                      rightTitles: AxisTitles(
-                        sideTitles: SideTitles(showTitles: false),
-                      ),
-                    ),
-                    borderData: FlBorderData(
-                      show: true,
-                      border: Border.all(color: Colors.black, width: 1),
-                    ),
-                    minX: minX,
-                    maxX: maxX,
-                    minY: minY,
-                    maxY: maxY,
-                    lineBarsData: [
                       LineChartBarData(
-                        spots: _p_ofdaData,
+                        spots: _rh_ahu02lbData,
                         isCurved: false,
-                        curveSmoothness: 0.1,
-                        color: const Color(0xFFed4d9b),
+                        curveSmoothness: 0.2,
+                        color: const Color.fromARGB(255, 77, 237, 184),
                         dotData: FlDotData(show: false),
                         belowBarData: BarAreaData(show: false),
                       ),
@@ -1654,7 +1586,10 @@ class _HomePageState extends State<HomePage> {
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   _buildLegend(
-                      color: const Color(0xFFed4d9b), label: 'Pressure Ofda'),
+                      color: const Color(0xFFed4d9b), label: 'Temperature'),
+                  _buildLegend(
+                      color: const Color.fromARGB(255, 77, 237, 184),
+                      label: 'Humidity'),
                 ],
               ),
               const SizedBox(height: 16),
@@ -1685,175 +1620,71 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildCircularValue(String label, double value) {
-    Color circleColor = value < 65 || value > 80
+    Color color = value < 65 || value > 80
         ? const Color(0xFFFF6B6B)
         : const Color(0xFF8547b0);
-    return Column(
-      children: [
-        Container(
-          width: 80,
-          height: 80,
-          decoration: BoxDecoration(
-            color: circleColor, // Ganti warna sesuai kebutuhan
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.grey.withOpacity(0.3),
-                spreadRadius: 2,
-                blurRadius: 6,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-          child: Center(
-            child: Text(
-              '${value.toInt()}°C',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
+    return CircularValue(
+      label: label,
+      valueText: '${value.toInt()}°C',
+      color: color,
+    );
+  }
+
+  Widget _buildCircularValueTempAhu(String label, double value) {
+    Color color = value < 18 || value > 27
+        ? const Color(0xFFFF6B6B)
+        : const Color(0xFF8547b0);
+    return CircularValue(
+      label: label,
+      valueText: '${value.toInt()}°C',
+      color: color,
+    );
+  }
+
+  Widget _buildCircularValueRhAhu(String label, double value) {
+    Color color = value < 55 || value > 70
+        ? const Color(0xFFFF6B6B)
+        : const Color(0xFF8547b0);
+    return CircularValue(
+      label: label,
+      valueText: '${value.toInt()}%',
+      color: color,
     );
   }
 
   Widget _buildCircularValueOfda(String label, double value) {
-// Membagi value dengan 10 untuk mendapatkan nilai yang benar
-    // double valueP = value / 10;
-
-    // Mengatur warna lingkaran berdasarkan nilai valueP
-    Color circleColor = value < 5.0 || value > 8.0
+    Color color = value < 5.0 || value > 8.0
         ? const Color(0xFFFF6B6B)
         : const Color(0xFF8547b0);
-    return Column(
-      children: [
-        Container(
-          width: 80,
-          height: 80,
-          decoration: BoxDecoration(
-            color: circleColor, // Ganti warna sesuai kebutuhan
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.grey.withOpacity(0.3),
-                spreadRadius: 2,
-                blurRadius: 6,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-          child: Center(
-            child: Text(
-              '${value.toStringAsFixed(1)} bar',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
+    return CircularValue(
+      label: label,
+      valueText: '${value.toStringAsFixed(1)} bar',
+      color: color,
     );
   }
 
-// Fungsi untuk menampilkan status Normal/Abnormal
-  Widget _buildStatusTextPwg(double value) {
-    // Logika menentukan status berdasarkan nilai value (pwg)
-    String status = (value < 65 || value > 80) ? "Abnormal" : "Normal";
-    Color backgroundColor = (value < 65 || value > 80)
+  Widget _buildStatusTexttemp_ahu02lb(double value) {
+    String status = (value < 18 || value > 27) ? "Abnormal" : "Normal";
+    Color backgroundColor = (value < 18 || value > 27)
         ? const Color(0xFFFF6B6B)
         : const Color(0xFF6FCF97);
-
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(
-              vertical: 8.0, horizontal: 16.0), // Menambahkan padding dalam box
-          decoration: BoxDecoration(
-            color: backgroundColor, // Warna background berubah sesuai status
-            borderRadius:
-                BorderRadius.circular(10.0), // Membuat sudut box melengkung
-          ),
-          child: Text(
-            status,
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.white, // Teks selalu berwarna putih
-            ),
-          ),
-        ),
-        const SizedBox(height: 16), // Memberi jarak di bawah box
-      ],
-    );
+    return StatusText(status: status, backgroundColor: backgroundColor);
   }
 
-// Fungsi untuk menampilkan status Normal/Abnormal
   Widget _buildStatusTextOfda(double value, int value_on) {
-    // Logika menentukan status berdasarkan nilai value (pwg)
     String status = (value < 5 || value_on == 0) ? "Abnormal" : "Normal";
     Color backgroundColor = (value < 5 || value_on == 0)
         ? const Color(0xFFFF6B6B)
         : const Color(0xFF6FCF97);
-
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(
-              vertical: 8.0, horizontal: 16.0), // Menambahkan padding dalam box
-          decoration: BoxDecoration(
-            color: backgroundColor, // Warna background berubah sesuai status
-            borderRadius:
-                BorderRadius.circular(10.0), // Membuat sudut box melengkung
-          ),
-          child: Text(
-            status,
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.white, // Teks selalu berwarna putih
-            ),
-          ),
-        ),
-        const SizedBox(height: 16), // Memberi jarak di bawah box
-      ],
-    );
+    return StatusText(status: status, backgroundColor: backgroundColor);
   }
 
   Widget _buildLegend({required Color color, required String label}) {
-    return Row(
-      children: [
-        Container(
-          width: 16,
-          height: 16,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Text(label),
-      ],
-    );
+    return LegendDot(color: color, label: label);
+  }
+
+  Future<void> _saveSwitchState(String key, bool value) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(key, value);
   }
 }

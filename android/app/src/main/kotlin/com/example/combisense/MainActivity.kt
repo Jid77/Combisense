@@ -1,4 +1,4 @@
-package com.example.aplikasitest1
+package com.example.combisense
 
 import io.flutter.embedding.android.FlutterActivity
 import android.os.Bundle

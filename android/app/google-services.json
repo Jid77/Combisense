@@ -1,22 +1,41 @@
 {
   "project_info": {
-    "project_number": "1046769102169",
-    "firebase_url": "https://test-dashboardalarmcombiphar-default-rtdb.firebaseio.com",
-    "project_id": "test-dashboardalarmcombiphar",
-    "storage_bucket": "test-dashboardalarmcombiphar.appspot.com"
+    "project_number": "82005272621",
+    "firebase_url": "https://monitoringutility-default-rtdb.firebaseio.com",
+    "project_id": "monitoringutility",
+    "storage_bucket": "monitoringutility.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:1046769102169:android:0c3c81c9dbf30784917048",
+        "mobilesdk_app_id": "1:82005272621:android:1186e158cccecb3daff0a4",
         "android_client_info": {
-          "package_name": "com.example.aplikasitest1"
+          "package_name": "com.example.combisense"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyBDhdGlznAcz3MKkrmwJbnEuO-heW4VT7E"
+          "current_key": "AIzaSyActgrR3MQaRy-4pOyEnGWLXJvmeg2QbSE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:82005272621:android:810912fa3e6ac14caff0a4",
+        "android_client_info": {
+          "package_name": "com.example.combisense"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyActgrR3MQaRy-4pOyEnGWLXJvmeg2QbSE"
         }
       ],
       "services": {
