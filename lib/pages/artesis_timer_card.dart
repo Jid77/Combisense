@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:combisense/services/artesis_timer_service.dart';
+import 'package:combisense/utils/auth_helper.dart'; // Import AuthHelper
 
 class ArtesisTimerCard extends StatefulWidget {
   final int number;
@@ -41,114 +42,14 @@ class _ArtesisTimerCardState extends State<ArtesisTimerCard> {
     if (val != null && val > 0) {
       _service.setPreset(val);
       _controller.clear();
-      showCustomTopNotification(context, "Preset telah diatur ke $val jam");
+      AuthHelper.showTopNotification(
+          context, "Preset telah diatur ke $val jam");
     }
   }
 
   void _resetTimer() {
     _service.triggerReset();
-    showCustomTopNotification(context, "Timer telah direset!");
-  }
-
-  void showCustomTopNotification(BuildContext context, String message) {
-    final overlay = Overlay.of(context);
-    final entry = OverlayEntry(
-      builder: (context) => Positioned(
-        top: 80,
-        left: 60,
-        right: 60,
-        child: SafeArea(
-          child: Material(
-            color: Colors.transparent,
-            child: Container(
-              margin: const EdgeInsets.only(bottom: 500), // sesuai permintaanmu
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFF6B6B),
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black26,
-                    blurRadius: 8,
-                    offset: Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Center(
-                child: Text(
-                  message,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-
-    overlay.insert(entry);
-
-    // Auto-dismiss after 2 seconds
-    Future.delayed(const Duration(seconds: 1), () {
-      entry.remove();
-    });
-  }
-
-  Future<bool> _verifyPassword(BuildContext context) async {
-    final TextEditingController _pwController = TextEditingController();
-    bool result = false;
-    bool isPasswordVisible = false;
-
-    await showDialog(
-      context: context,
-      builder: (_) {
-        return StatefulBuilder(
-          builder: (context, setState) => AlertDialog(
-            title: const Text("Masukkan Password"),
-            content: TextField(
-              controller: _pwController,
-              obscureText: !isPasswordVisible,
-              decoration: InputDecoration(
-                labelText: "Password",
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    isPasswordVisible ? Icons.visibility : Icons.visibility_off,
-                  ),
-                  onPressed: () {
-                    setState(() {
-                      isPasswordVisible = !isPasswordVisible;
-                    });
-                  },
-                ),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text("Batal"),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  if (_pwController.text == "combi123") {
-                    result = true;
-                    Navigator.pop(context);
-                  } else {
-                    showCustomTopNotification(context, "Password salah!");
-                  }
-                },
-                child: const Text("OK"),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-
-    return result;
+    AuthHelper.showTopNotification(context, "Timer telah direset!");
   }
 
   Widget _buildTimerValue(String label, double value) {
@@ -228,7 +129,7 @@ class _ArtesisTimerCardState extends State<ArtesisTimerCard> {
             children: [
               ElevatedButton(
                 onPressed: () async {
-                  if (await _verifyPassword(context)) {
+                  if (await AuthHelper.verifyPassword(context)) {
                     _resetTimer();
                   }
                 },
@@ -245,7 +146,7 @@ class _ArtesisTimerCardState extends State<ArtesisTimerCard> {
               const SizedBox(height: 6),
               ElevatedButton(
                 onPressed: () async {
-                  if (await _verifyPassword(context)) {
+                  if (await AuthHelper.verifyPassword(context)) {
                     showDialog(
                       context: context,
                       builder: (_) {

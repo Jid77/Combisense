@@ -376,7 +376,7 @@ class _HomePageState extends State<HomePage> {
         ),
         bottomNavigationBar: Container(
           // margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-          margin: const EdgeInsets.only(left: 10, right: 10, bottom: 8, top: 5),
+          margin: const EdgeInsets.only(left: 10, right: 10, bottom: 6, top: 5),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(30),
@@ -905,7 +905,6 @@ class _HomePageState extends State<HomePage> {
                         tk201: tk201,
                         tk202: tk202,
                         tk103: tk103,
-                        buildCircularValue: _buildCircularValue,
                         chartWidget: _buildChartVentFilter(),
                       ),
                       lbeng04Page(
