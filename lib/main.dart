@@ -22,7 +22,7 @@ double tk103 = 0;
 int boiler = 0;
 int ofda = 0;
 int chiller = 0;
-double temp_ahu02lb = 0;
+double temp_ahu04lb = 0;
 double p_ofda = 0;
 // Tambahkan variabel global jika ingin akses di file lain
 int uf = 0;
@@ -164,7 +164,7 @@ Future<void> executeFetchData() async {
   List<FlSpot> tk201Data = [];
   List<FlSpot> tk202Data = [];
   List<FlSpot> tk103Data = [];
-  List<FlSpot> temp_ahu02lbData = [];
+  List<FlSpot> temp_ahu04lbData = [];
   List<FlSpot> p_ofdaData = [];
   List<String> timestamps = [];
   DateFormat formatter = DateFormat('yyyy-MM-dd HH:mm:ss');
@@ -177,7 +177,7 @@ Future<void> executeFetchData() async {
     double newTk201,
     double newTk202,
     double newTk103,
-    double newTemp_ahu02lb,
+    double newTemp_ahu04lb,
     double newP_ofda,
     int newUf,
     int newFaultPump,
@@ -191,7 +191,7 @@ Future<void> executeFetchData() async {
     tk201 = newTk201;
     tk202 = newTk202;
     tk103 = newTk103;
-    temp_ahu02lb = newTemp_ahu02lb;
+    temp_ahu04lb = newTemp_ahu04lb;
     p_ofda = newP_ofda;
     uf = newUf;
     faultPump = newFaultPump;
@@ -199,7 +199,7 @@ Future<void> executeFetchData() async {
     lowSurfaceTank = newLowSurfaceTank;
 
     print(
-        "Data : Boiler: $boiler, Chiller: $chiller, OFDA: $ofda, TK201: $tk201, TK202: $tk202, TK103: $tk103, temp_ahu02lb : $temp_ahu02lb, PressureOfda : $p_ofda, UF: $uf, FaultPump: $faultPump, HighSurfaceTank: $highSurfaceTank, LowSurfaceTank: $lowSurfaceTank");
+        "Data : Boiler: $boiler, Chiller: $chiller, OFDA: $ofda, TK201: $tk201, TK202: $tk202, TK103: $tk103, temp_ahu04lb : $temp_ahu04lb, PressureOfda : $p_ofda, UF: $uf, FaultPump: $faultPump, HighSurfaceTank: $highSurfaceTank, LowSurfaceTank: $lowSurfaceTank");
   }
 
   // Panggil fetchData dengan parameter baru
@@ -208,7 +208,7 @@ Future<void> executeFetchData() async {
     tk201Data,
     tk202Data,
     tk103Data,
-    temp_ahu02lbData,
+    temp_ahu04lbData,
     p_ofdaData,
     timestamps,
     formatter,

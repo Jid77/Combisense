@@ -12,13 +12,10 @@ import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:combisense/widgets/background_wave.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:combisense/services/export_service.dart';
+import 'package:combisense/widgets/tank_level_widget.dart';
 import '../widgets/circular_value.dart';
 import '../widgets/status_text.dart';
 import '../widgets/legend_dot.dart';
-import 'indikator_page.dart';
-import 'lbeng04_page.dart';
-import 'vent_filter_page.dart';
-import 'package:rxdart/rxdart.dart';
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
@@ -77,36 +74,14 @@ class _HomePageState extends State<HomePage> {
   //  excel - timestamp
   DateTimeRange? selectedDateRange;
 
-  final BehaviorSubject<int> _boilerSubject = BehaviorSubject<int>();
-  final BehaviorSubject<int> _ofdaSubject = BehaviorSubject<int>();
-  final BehaviorSubject<int> _chillerSubject = BehaviorSubject<int>();
-  final BehaviorSubject<int> _ufSubject = BehaviorSubject<int>();
-  final BehaviorSubject<int> _faultPumpSubject = BehaviorSubject<int>();
-  final BehaviorSubject<int> _highSubject = BehaviorSubject<int>();
-  final BehaviorSubject<int> _lowSubject = BehaviorSubject<int>();
-
-  late StreamSubscription<int> _boilerSubscription;
-  late StreamSubscription<int> _ofdaSubscription;
-  late StreamSubscription<int> _chillerSubscription;
-  late StreamSubscription<int> _ufSubscription;
-  late StreamSubscription<int> _faultPumpSubscription;
-  late StreamSubscription<int> _highSubscription;
-  late StreamSubscription<int> _lowSubscription;
+  late final Stream<int> _highStream;
+  late final Stream<int> _lowStream;
 
   @override
   void initState() {
     super.initState();
-    _boilerSubscription = dataService.boilerStream.listen(_boilerSubject.add);
-    _ofdaSubscription = dataService.ofdaStream.listen(_ofdaSubject.add);
-    _chillerSubscription =
-        dataService.chillerStream.listen(_chillerSubject.add);
-    _ufSubscription = dataService.ufStream.listen(_ufSubject.add);
-    _faultPumpSubscription =
-        dataService.faultPumpStream.listen(_faultPumpSubject.add);
-    _highSubscription =
-        dataService.highSurfaceTankStream.listen(_highSubject.add);
-    _lowSubscription = dataService.lowSurfaceTankStream.listen(_lowSubject.add);
-
+    _highStream = dataService.highSurfaceTankStream;
+    _lowStream = dataService.lowSurfaceTankStream;
     // if (!_isListenerStarted) {
     //   _isListenerStarted = true;
     // }
@@ -277,21 +252,6 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
-    _boilerSubscription.cancel();
-    _ofdaSubscription.cancel();
-    _chillerSubscription.cancel();
-    _ufSubscription.cancel();
-    _faultPumpSubscription.cancel();
-    _highSubscription.cancel();
-    _lowSubscription.cancel();
-
-    _boilerSubject.close();
-    _ofdaSubject.close();
-    _chillerSubject.close();
-    _ufSubject.close();
-    _faultPumpSubject.close();
-    _highSubject.close();
-    _lowSubject.close();
     // _timer.cancel();
     _pageController.dispose();
     super.dispose();
@@ -834,40 +794,500 @@ class _HomePageState extends State<HomePage> {
                   child: PageView(
                     controller: _pageController,
                     children: [
-                      indikatorPage(
-                        key: const PageStorageKey('Digital Indikator'),
-                        highStream: _highSubject.stream,
-                        lowStream: _lowSubject.stream,
-                        faultPumpStream: _faultPumpSubject.stream,
-                        boilerStream: _boilerSubject.stream,
-                        ofdaStream: _ofdaSubject.stream,
-                        chillerStream: _chillerSubject.stream,
-                        ufStream: _ufSubject.stream,
+                      // Halaman pertama: Boiler, Chiller, OFDA, dst
+                      Padding(
+                        key: const PageStorageKey('page1'),
+                        padding: const EdgeInsets.all(8.0),
+                        child: RawScrollbar(
+                          thumbVisibility: true,
+                          thickness: 3,
+                          radius: const Radius.circular(10),
+                          thumbColor: const Color(0xFF532F8F).withOpacity(0.8),
+                          fadeDuration: const Duration(milliseconds: 500),
+                          pressDuration: const Duration(milliseconds: 100),
+                          child: SingleChildScrollView(
+                            primary: false,
+                            physics: const BouncingScrollPhysics(),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Column(
+                                children: [
+                                  // Card utama: Tank + Domestic Pump
+                                  Card(
+                                    elevation: 5,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(28),
+                                    ),
+                                    color: Colors.white,
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                          vertical: 24, horizontal: 18),
+                                      child: Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.center,
+                                        children: [
+                                          // Tampilkan tank pakai StreamBuilder juga
+                                          StreamBuilder<int>(
+                                            stream: _highStream,
+                                            builder: (context, highSnapshot) {
+                                              return StreamBuilder<int>(
+                                                stream: _lowStream,
+                                                builder:
+                                                    (context, lowSnapshot) {
+                                                  final high =
+                                                      highSnapshot.data ?? 0;
+                                                  final low =
+                                                      lowSnapshot.data ?? 0;
+
+                                                  return TankLevelWidget(
+                                                    high: high,
+                                                    low: low,
+                                                    width: 100,
+                                                    height: 160,
+                                                    label: "Domestic Tank",
+                                                  );
+                                                },
+                                              );
+                                            },
+                                          ),
+                                          const SizedBox(width: 15),
+
+                                          // Domestic Pump
+                                          Expanded(
+                                            flex: 3,
+                                            child: Column(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                Image.asset(
+                                                  'assets/images/waterpump.png',
+                                                  width: 60,
+                                                  height: 60,
+                                                  fit: BoxFit.contain,
+                                                ),
+                                                const SizedBox(height: 8),
+                                                const Text(
+                                                  'Domestic Pump',
+                                                  style: TextStyle(
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Colors.black87,
+                                                  ),
+                                                  maxLines: 2,
+                                                  softWrap: true,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  textAlign: TextAlign.center,
+                                                ),
+                                                const SizedBox(height: 8),
+
+                                                // Pakai StreamBuilder untuk faultPump
+                                                StreamBuilder<int>(
+                                                  stream: dataService
+                                                      .faultPumpStream,
+                                                  builder: (context, snapshot) {
+                                                    final status =
+                                                        snapshot.data ?? 0;
+
+                                                    return Container(
+                                                      padding: const EdgeInsets
+                                                          .symmetric(
+                                                          vertical: 4,
+                                                          horizontal: 12),
+                                                      decoration: BoxDecoration(
+                                                        color: status == 0
+                                                            ? const Color(
+                                                                0xFF6FCF97) // Normal (Hijau)
+                                                            : const Color(
+                                                                0xFFFF6B6B), // Fault (Merah)
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(8.0),
+                                                      ),
+                                                      child: Text(
+                                                        status == 0
+                                                            ? "Normal"
+                                                            : "Abnormal",
+                                                        style: const TextStyle(
+                                                          color: Colors.white,
+                                                          fontSize: 13,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                        ),
+                                                      ),
+                                                    );
+                                                  },
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+
+                                  // const SizedBox(height: 24),
+                                  // Grid kecil untuk status lain
+                                  GridView.count(
+                                    crossAxisCount: 2,
+                                    shrinkWrap: true,
+                                    physics:
+                                        const NeverScrollableScrollPhysics(),
+                                    mainAxisSpacing: 16,
+                                    crossAxisSpacing: 16,
+                                    childAspectRatio: 1.3,
+                                    children: [
+                                      StreamBuilder<int>(
+                                        stream: dataService.boilerStream,
+                                        builder: (context, snapshot) {
+                                          int boiler = snapshot.data ?? 0;
+                                          return _buildStatusWidget(
+                                            'Boiler',
+                                            boiler,
+                                            'assets/images/3dboiler.png',
+                                            60,
+                                            78,
+                                          );
+                                        },
+                                      ),
+                                      StreamBuilder<int>(
+                                        stream: dataService.ofdaStream,
+                                        builder: (context, snapshot) {
+                                          final status = snapshot.data ?? 0;
+                                          return _buildStatusWidget(
+                                            'OFDA',
+                                            status,
+                                            'assets/images/3dofda.png',
+                                            60,
+                                            118,
+                                          );
+                                        },
+                                      ),
+                                      StreamBuilder<int>(
+                                        stream: dataService.chillerStream,
+                                        builder: (context, snapshot) {
+                                          final status = snapshot.data ?? 0;
+                                          return _buildStatusWidget(
+                                            'Chiller',
+                                            status,
+                                            'assets/images/3dchiller.png',
+                                            60,
+                                            78,
+                                          );
+                                        },
+                                      ),
+                                      StreamBuilder<int>(
+                                        stream: dataService.ufStream,
+                                        builder: (context, snapshot) {
+                                          final status = snapshot.data ?? 0;
+                                          return _buildStatusWidget(
+                                            'UF',
+                                            status,
+                                            'assets/images/UF.png', // ganti dengan gambar UF
+                                            60,
+                                            118,
+                                          );
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
-                      VentFilterPage(
-                        key: const PageStorageKey('VentFilter'),
-                        tk201: tk201,
-                        tk202: tk202,
-                        tk103: tk103,
-                        buildCircularValue: _buildCircularValue,
-                        chartWidget: _buildChartVentFilter(),
+                      // Halaman kedua: Current Temperature dan Graphic Temperature
+                      Padding(
+                        key: const PageStorageKey('page2'),
+                        padding: const EdgeInsets.only(
+                            top: 25.0, left: 16, right: 30, bottom: 16),
+                        child: SingleChildScrollView(
+                          primary: false,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    vertical: 8.0, horizontal: 16.0),
+                                child: const Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      "Vent Filter",
+                                      style: TextStyle(
+                                        fontSize: 22,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.black,
+                                      ),
+                                      textAlign: TextAlign.start,
+                                    ),
+                                    SizedBox(
+                                        height:
+                                            4), // Jarak antara teks dan garis
+                                    Divider(
+                                      thickness: 2, // Ketebalan garis
+                                      color: Colors.black, // Warna garis
+                                      indent: 0, // Jarak dari tepi kiri
+                                      endIndent: 150, // Jarak dari tepi kanan
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+
+                              // Container for Current Temperature display
+                              Container(
+                                padding: const EdgeInsets.all(16.0),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(12.0),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.grey.withOpacity(0.3),
+                                      spreadRadius: 2,
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 3),
+                                    ),
+                                  ],
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      "Current Temperature",
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceAround,
+                                      children: [
+                                        _buildCircularValue('Tk201', tk201),
+                                        _buildCircularValue('Tk202', tk202),
+                                        _buildCircularValue('Tk103', tk103),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Title and Chart
+                              const Text(
+                                "Graphic Temperature",
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              _buildChartVentFilter(),
+                            ],
+                          ),
+                        ),
                       ),
-                      lbeng04Page(
-                        key: const PageStorageKey('LBENG-AHU-004'),
-                        tempAhu04lb: temp_ahu04lb,
-                        rhAhu04lb: rh_ahu04lb,
-                        chartWidget: _buildChart_ahu04lb(),
-                        buildTempWidget: _buildCircularValueTempAhu,
-                        buildHumidityWidget: _buildCircularValueRhAhu,
+
+                      // Halaman Ketigaa: temp_ahu04lb - Hot LOOP
+                      Padding(
+                        key: const PageStorageKey('page3'),
+                        padding: const EdgeInsets.only(
+                            top: 25.0, left: 16, right: 16, bottom: 16),
+                        child: SingleChildScrollView(
+                          primary: false,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    vertical: 8.0, horizontal: 16.0),
+                                child: const Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      "LBENG-AHU-04",
+                                      style: TextStyle(
+                                        fontSize: 22,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.black,
+                                      ),
+                                      textAlign: TextAlign.start,
+                                    ),
+                                    SizedBox(
+                                        height:
+                                            4), // Jarak antara teks dan garis
+                                    Divider(
+                                      thickness: 2, // Ketebalan garis
+                                      color: Colors.black, // Warna garis
+                                      indent: 0, // Jarak dari tepi kiri
+                                      endIndent: 150, // Jarak dari tepi kanan
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+
+                              // Container for Current Temperature display
+                              Container(
+                                width: 5,
+                                padding: const EdgeInsets.all(16.0),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(12.0),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.grey.withOpacity(0.3),
+                                      spreadRadius: 2,
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 3),
+                                    ),
+                                  ],
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      "Current Status",
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceAround,
+                                      children: [
+                                        _buildCircularValueTempAhu(
+                                            'Temperature', temp_ahu04lb),
+                                        _buildCircularValueRhAhu(
+                                            'Humidity', rh_ahu04lb),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Title and Chart
+                              const Text(
+                                "Graphic Temperature & Humidity",
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              _buildChart_ahu04lb(),
+                            ],
+                          ),
+                        ),
                       ),
+
+                      // Halaman Keempat: Ofda
+                      // Padding(
+                      //   padding: const EdgeInsets.only(
+                      //       top: 25.0, left: 16, right: 16, bottom: 16),
+                      //   child: SingleChildScrollView(
+                      //     child: Column(
+                      //       crossAxisAlignment: CrossAxisAlignment.stretch,
+                      //       children: [
+                      //         Container(
+                      //           padding: const EdgeInsets.symmetric(
+                      //               vertical: 8.0, horizontal: 16.0),
+                      //           child: const Column(
+                      //             crossAxisAlignment: CrossAxisAlignment.start,
+                      //             children: [
+                      //               Text(
+                      //                 "Pressure Ofda",
+                      //                 style: TextStyle(
+                      //                   fontSize: 18,
+                      //                   fontWeight: FontWeight.bold,
+                      //                   color: Colors.black,
+                      //                 ),
+                      //                 textAlign: TextAlign.start,
+                      //               ),
+                      //               SizedBox(
+                      //                   height:
+                      //                       4), // Jarak antara teks dan garis
+                      //               Divider(
+                      //                 thickness: 2, // Ketebalan garis
+                      //                 color: Colors.black, // Warna garis
+                      //                 indent: 0, // Jarak dari tepi kiri
+                      //                 endIndent: 150, // Jarak dari tepi kanan
+                      //               ),
+                      //             ],
+                      //           ),
+                      //         ),
+                      //         const SizedBox(height: 10),
+
+                      //         // Container for Current Temperature display
+                      //         Container(
+                      //           width: 5,
+                      //           padding: const EdgeInsets.all(16.0),
+                      //           decoration: BoxDecoration(
+                      //             color: Colors.white,
+                      //             borderRadius: BorderRadius.circular(12.0),
+                      //             boxShadow: [
+                      //               BoxShadow(
+                      //                 color: Colors.grey.withOpacity(0.3),
+                      //                 spreadRadius: 2,
+                      //                 blurRadius: 8,
+                      //                 offset: const Offset(0, 3),
+                      //               ),
+                      //             ],
+                      //           ),
+                      //           child: Column(
+                      //             crossAxisAlignment: CrossAxisAlignment.start,
+                      //             children: [
+                      //               const Text(
+                      //                 "Current Pressure",
+                      //                 style: TextStyle(
+                      //                   fontSize: 16,
+                      //                   fontWeight: FontWeight.bold,
+                      //                 ),
+                      //               ),
+                      //               const SizedBox(height: 16),
+                      //               Row(
+                      //                 mainAxisAlignment:
+                      //                     MainAxisAlignment.spaceAround,
+                      //                 children: [
+                      //                   _buildCircularValueOfda('', rh_ahu04lb),
+                      //                   _buildStatusTextOfda(rh_ahu04lb, ofda)
+                      //                 ],
+                      //               ),
+                      //             ],
+                      //           ),
+                      //         ),
+                      //         const SizedBox(height: 16),
+
+                      //         // Title and Chart
+                      //         const Text(
+                      //           "Graphic Temperature",
+                      //           style: TextStyle(
+                      //             fontSize: 16,
+                      //             fontWeight: FontWeight.bold,
+                      //           ),
+                      //         ),
+                      //         const SizedBox(height: 16),
+                      //         _buildChartOfda(),
+                      //       ],
+                      //     ),
+                      //   ),
+                      // )
                     ],
                   ),
                 ),
+                // Smooth Page Indicator
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 2.0),
+                  padding: const EdgeInsets.only(
+                      bottom: 2.0), // Atur jarak sesuai kebutuhan
                   child: SmoothPageIndicator(
                     controller: _pageController,
-                    count: 3,
+                    count: 3, // Jumlah halaman yang ada di PageView
                     effect: WormEffect(
                       dotHeight: 8.0,
                       dotWidth: 8.0,

@@ -1,67 +1,122 @@
 // ignore_for_file: non_constant_identifier_names, avoid_print
 
-import 'package:firebase_database/firebase_database.dart';
-import 'package:hive/hive.dart';
 import 'dart:async';
+import 'package:firebase_database/firebase_database.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:hive/hive.dart';
 
 // Inisialisasi notifikasi lokal
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
 
 class DataService {
+  static final DataService _instance = DataService._internal();
+  factory DataService() => _instance;
+
+  late final StreamSubscription<DatabaseEvent> _sensorSubscription;
+
+  DataService._internal() {
+    _sensorSubscription = _sensorRef.onValue.listen((event) {
+      final data = Map<dynamic, dynamic>.from(event.snapshot.value as Map);
+
+      final boiler = data['boiler'] ?? 0;
+      final chiller = data['chiller'] ?? 0;
+      final ofda = data['ofda'] ?? 0;
+      final uf = data['UF'] ?? 0;
+      final faultPump = data['fault_pump'] ?? 0;
+      final highSurfaceTank = data['high_surface_tank'] ?? 0;
+      final lowSurfaceTank = data['low_surface_tank'] ?? 0;
+
+      _boilerStreamController.add(boiler);
+      _chillerStreamController.add(chiller);
+      _ofdaStreamController.add(ofda);
+      _ufStreamController.add(uf);
+      _faultPumpStreamController.add(faultPump);
+      _highSurfaceTankStreamController.add(highSurfaceTank);
+      _lowSurfaceTankStreamController.add(lowSurfaceTank);
+    });
+  }
+
   final DatabaseReference _database = FirebaseDatabase.instance.ref();
+  final DatabaseReference _sensorRef =
+      FirebaseDatabase.instance.ref('sensor_data');
 
-  // Stream untuk boiler, chiller, dan ofda
-  final StreamController<int> _boilerStreamController = StreamController<int>();
-  final StreamController<int> _chillerStreamController =
-      StreamController<int>();
-  final StreamController<int> _ofdaStreamController = StreamController<int>();
-  final StreamController<int> _ufStreamController = StreamController<int>();
-  final StreamController<int> _faultPumpStreamController =
-      StreamController<int>();
-  final StreamController<int> _highSurfaceTankStreamController =
-      StreamController<int>();
-  final StreamController<int> _lowSurfaceTankStreamController =
-      StreamController<int>();
+  // Stream Controller
+  final _boilerStreamController = StreamController<int>.broadcast();
+  final _chillerStreamController = StreamController<int>.broadcast();
+  final _ofdaStreamController = StreamController<int>.broadcast();
+  final _ufStreamController = StreamController<int>.broadcast();
+  final _faultPumpStreamController = StreamController<int>.broadcast();
+  final _highSurfaceTankStreamController = StreamController<int>.broadcast();
+  final _lowSurfaceTankStreamController = StreamController<int>.broadcast();
 
+  // Stream getter
+  Stream<int> get boilerStream => _boilerStreamController.stream;
+  Stream<int> get chillerStream => _chillerStreamController.stream;
+  Stream<int> get ofdaStream => _ofdaStreamController.stream;
   Stream<int> get ufStream => _ufStreamController.stream;
   Stream<int> get faultPumpStream => _faultPumpStreamController.stream;
   Stream<int> get highSurfaceTankStream =>
       _highSurfaceTankStreamController.stream;
   Stream<int> get lowSurfaceTankStream =>
       _lowSurfaceTankStreamController.stream;
-  Stream<int> get boilerStream => _boilerStreamController.stream;
-  Stream<int> get chillerStream => _chillerStreamController.stream;
-  Stream<int> get ofdaStream => _ofdaStreamController.stream;
 
-  /// Fetch sensor data from Firebase, save to Hive, update streams, and check alarms
+  // 🚫 Tidak perlu start/restart/stop listener lagi
+
+  void dispose() {
+    _sensorSubscription.cancel();
+    _boilerStreamController.close();
+    _chillerStreamController.close();
+    _ofdaStreamController.close();
+    _ufStreamController.close();
+    _faultPumpStreamController.close();
+    _highSurfaceTankStreamController.close();
+    _lowSurfaceTankStreamController.close();
+  }
+
   Future<void> fetchData(
     int index,
     List<FlSpot> tk201Data,
     List<FlSpot> tk202Data,
     List<FlSpot> tk103Data,
-    List<FlSpot> temp_ahu02lbData,
-    List<FlSpot> rh_ahu02lbData,
+    List<FlSpot> temp_ahu04lbData,
+    List<FlSpot> rh_ahu04lbData,
     List<String> timestamps,
     DateFormat formatter,
-    Function(int, int, int, double, double, double, double, double, int, int,
-            int, int // Tambahan 4 data baru
-            )
-        updateCallback,
+    Function(
+      int,
+      int,
+      int,
+      double,
+      double,
+      double,
+      double,
+      double,
+      int,
+      int,
+      int,
+      int,
+    ) updateCallback,
   ) async {
     try {
       final dataSnapshot = await _database.child('sensor_data').get();
       if (dataSnapshot.value != null) {
         final data = Map<dynamic, dynamic>.from(dataSnapshot.value as Map);
-        final tk201 = data['tk201']?.toDouble() ?? 0;
-        final tk202 = data['tk202']?.toDouble() ?? 0;
-        final tk103 = data['tk103']?.toDouble() ?? 0;
-        final temp_ahu02lb = data['temp_ahu02lb']?.toDouble() ?? 0;
-        final rh_ahu02lb = data['rh_ahu02lb']?.toDouble() ?? 0;
+        final tk201 =
+            (data['tk201'] is num) ? (data['tk201'] as num).toDouble() : 0.0;
+        final tk202 =
+            (data['tk202'] is num) ? (data['tk202'] as num).toDouble() : 0.0;
+        final tk103 =
+            (data['tk103'] is num) ? (data['tk103'] as num).toDouble() : 0.0;
+        final temp_ahu04lb = (data['temp_ahu04lb'] is num)
+            ? (data['temp_ahu04lb'] as num).toDouble()
+            : 0.0;
+        final rh_ahu04lb = (data['rh_ahu04lb'] is num)
+            ? (data['rh_ahu04lb'] as num).toDouble()
+            : 0.0;
         final boiler = data['boiler'] ?? 0;
         final ofda = data['ofda'] ?? 0;
         final chiller = data['chiller'] ?? 0;
@@ -69,36 +124,39 @@ class DataService {
         final faultPump = data['fault_pump'] ?? 0;
         final highSurfaceTank = data['high_surface_tank'] ?? 0;
         final lowSurfaceTank = data['low_surface_tank'] ?? 0;
+
         final timestamp = DateTime.now();
 
         await _saveToHive(
-            tk201,
-            tk202,
-            tk103,
-            temp_ahu02lb,
-            rh_ahu02lb,
-            boiler,
-            ofda,
-            chiller,
-            uf,
-            faultPump,
-            highSurfaceTank,
-            lowSurfaceTank,
-            timestamp);
+          tk201,
+          tk202,
+          tk103,
+          temp_ahu04lb,
+          rh_ahu04lb,
+          boiler,
+          ofda,
+          chiller,
+          uf,
+          faultPump,
+          highSurfaceTank,
+          lowSurfaceTank,
+          timestamp,
+        );
 
         updateCallback(
-            boiler.toInt(),
-            chiller.toInt(),
-            ofda.toInt(),
-            tk201,
-            tk202,
-            tk103,
-            temp_ahu02lb,
-            rh_ahu02lb,
-            uf,
-            faultPump,
-            highSurfaceTank,
-            lowSurfaceTank);
+          boiler.toInt(),
+          chiller.toInt(),
+          ofda.toInt(),
+          tk201,
+          tk202,
+          tk103,
+          temp_ahu04lb,
+          rh_ahu04lb,
+          uf,
+          faultPump,
+          highSurfaceTank,
+          lowSurfaceTank,
+        );
 
         _boilerStreamController.add(boiler.toInt());
         _chillerStreamController.add(chiller.toInt());
@@ -115,7 +173,8 @@ class DataService {
           boiler: boiler,
           ofda: ofda,
           chiller: chiller,
-          tempAhu: temp_ahu02lb,
+          tempAhu: temp_ahu04lb,
+          rhAhu: rh_ahu04lb,
           uf: uf,
           faultPump: faultPump,
           highSurfaceTank: highSurfaceTank,
@@ -131,8 +190,8 @@ class DataService {
     double tk201,
     double tk202,
     double tk103,
-    double temp_ahu02lb,
-    double rh_ahu02lb,
+    double temp_ahu04lb,
+    double rh_ahu04lb,
     int boiler,
     int ofda,
     int chiller,
@@ -152,8 +211,8 @@ class DataService {
       'tk201': tk201,
       'tk202': tk202,
       'tk103': tk103,
-      'temp_ahu02lb': temp_ahu02lb,
-      'rh_ahu02lb': rh_ahu02lb,
+      'temp_ahu04lb': temp_ahu04lb,
+      'rh_ahu04lb': rh_ahu04lb,
       'timestamp': formattedTimestamp,
       'uf': uf,
       'fault_pump': faultPump,
@@ -170,8 +229,8 @@ class DataService {
       'tk201': tk201,
       'tk202': tk202,
       'tk103': tk103,
-      'temp_ahu02lb': temp_ahu02lb,
-      'rh_ahu02lb': rh_ahu02lb,
+      'temp_ahu04lb': temp_ahu04lb,
+      'rh_ahu04lb': rh_ahu04lb,
       'timestamp': formattedTimestamp,
       'uf': uf,
       'fault_pump': faultPump,
@@ -183,17 +242,21 @@ class DataService {
     print("Data sensor disimpan ke Hive");
   }
 
-  // Jangan lupa untuk menutup stream controller saat tidak digunakan
-  void dispose() {
-    _boilerStreamController.close();
-    _chillerStreamController.close();
-    _ofdaStreamController.close();
-  }
-
   Future<void> loadInitialData(
-    Function(int, int, int, double, double, double, double, double, int, int,
-            int, int)
-        updateCallback,
+    Function(
+      int,
+      int,
+      int,
+      double,
+      double,
+      double,
+      double,
+      double,
+      int,
+      int,
+      int,
+      int,
+    ) updateCallback,
   ) async {
     final sensorDataBox = await Hive.openBox('sensorDataBox');
     final sensorStatus = sensorDataBox.get('sensorStatus');
@@ -205,24 +268,13 @@ class DataService {
         sensorStatus['tk201']?.toDouble() ?? 0.0,
         sensorStatus['tk202']?.toDouble() ?? 0.0,
         sensorStatus['tk103']?.toDouble() ?? 0.0,
-        sensorStatus['temp_ahu02lb']?.toDouble() ?? 0.0,
-        sensorStatus['rh_ahu02lb']?.toDouble() ?? 0.0,
+        sensorStatus['temp_ahu04lb']?.toDouble() ?? 0.0,
+        sensorStatus['rh_ahu04lb']?.toDouble() ?? 0.0,
         sensorStatus['uf'] ?? 0,
         sensorStatus['fault_pump'] ?? 0,
         sensorStatus['high_surface_tank'] ?? 0,
         sensorStatus['low_surface_tank'] ?? 0,
       );
-      _boilerStreamController.add(sensorStatus['boiler'] ?? 0);
-      _chillerStreamController.add(sensorStatus['chiller'] ?? 0);
-      _ofdaStreamController.add(sensorStatus['ofda'] ?? 0);
-      _ufStreamController.add(sensorStatus['uf'] ?? 0);
-      _faultPumpStreamController.add(sensorStatus['fault_pump'] ?? 0);
-      _highSurfaceTankStreamController
-          .add(sensorStatus['high_surface_tank'] ?? 0);
-      _lowSurfaceTankStreamController
-          .add(sensorStatus['low_surface_tank'] ?? 0);
-
-      print("Data awal diambil dari Hive dan ditampilkan");
     } else {
       print("Data awal tidak ditemukan di Hive.");
     }
@@ -249,7 +301,6 @@ class DataService {
     );
   }
 
-  /// Check all alarm conditions and send notification if needed
   Future<void> checkAlarmCondition({
     required double tk201,
     required double tk202,
@@ -258,13 +309,14 @@ class DataService {
     required int ofda,
     required int chiller,
     required double tempAhu,
+    required double rhAhu,
     required int uf,
     required int faultPump,
     required int highSurfaceTank,
     required int lowSurfaceTank,
   }) async {
-    final box = Hive.box('alarmHistoryBox');
-    SharedPreferences prefs = await SharedPreferences.getInstance();
+    final box = await Hive.openBox('alarmHistoryBox');
+    final prefs = await SharedPreferences.getInstance();
 
     final List<_AlarmRule> alarmRules = [
       _AlarmRule(
@@ -311,10 +363,12 @@ class DataService {
       ),
       _AlarmRule(
         enabled: prefs.getBool("task7") ?? false,
-        condition: () => tempAhu < 18 || tempAhu > 27,
-        message: "Warning: Temperature Ahu 02 out of range: $tempAhu",
-        name: "Ahu 02 LB",
-        value: tempAhu,
+        condition: () =>
+            tempAhu < 18 || tempAhu > 27 || rhAhu < 40 || rhAhu > 60,
+        message:
+            "Warning: Ahu 04 out of range: Temperature $tempAhu, Humidity $rhAhu",
+        name: "Ahu 04 LB",
+        value: {'tempAhu': tempAhu, 'rhAhu': rhAhu},
       ),
       _AlarmRule(
         enabled: prefs.getBool("task8") ?? false,
@@ -325,7 +379,7 @@ class DataService {
       ),
       _AlarmRule(
         enabled: prefs.getBool("task9") ?? false,
-        condition: () => faultPump == 1, // contoh: fault aktif jika 1
+        condition: () => faultPump == 1,
         message: "Warning: Fault Pump Detected",
         name: "fault_pump",
         value: faultPump,
@@ -349,11 +403,12 @@ class DataService {
         });
       }
     }
+
     print("Data terbaru di alarmHistoryBox: ${box.values.toList()}");
   }
 }
 
-/// Simple alarm rule class for cleaner alarm logic
+/// Class bantu alarm
 class _AlarmRule {
   final bool enabled;
   final bool Function() condition;
