@@ -18,6 +18,7 @@ import '../widgets/legend_dot.dart';
 import 'indikator_page.dart';
 import 'lbeng04_page.dart';
 import 'vent_filter_page.dart';
+import 'package:combisense/pages/artesis_timer_card.dart';
 import 'package:rxdart/rxdart.dart';
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
@@ -374,15 +375,16 @@ class _HomePageState extends State<HomePage> {
           ],
         ),
         bottomNavigationBar: Container(
-          margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+          // margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+          margin: const EdgeInsets.only(left: 10, right: 10, bottom: 8, top: 5),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(35),
+            borderRadius: BorderRadius.circular(30),
             boxShadow: const [
               BoxShadow(
                 color: Colors.black26,
-                blurRadius: 10,
-                offset: Offset(0, -3),
+                blurRadius: 5,
+                offset: Offset(0, 3),
               ),
             ],
           ),
@@ -476,129 +478,169 @@ class _HomePageState extends State<HomePage> {
             ),
             const SizedBox(height: 10),
             // Satu Card untuk semua switch
-            Card(
-              elevation: 3,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(32),
-              ),
-              color: const Color.fromARGB(255, 255, 255, 255),
-              child: Padding(
+            Container(
+                margin:
+                    const EdgeInsets.symmetric(horizontal: 12.0, vertical: 6.0),
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                child: Column(
-                  children: [
-                    _buildAlarmSwitch(
-                      title: 'Boiler Notification',
-                      value: isTask1On,
-                      onChanged: (value) {
-                        setState(() {
-                          isTask1On = value;
-                          updateServiceData();
-                        });
-                        _saveSwitchState("task1", value);
-                      },
-                    ),
-                    _buildAlarmSwitch(
-                      title: 'OFDA Notification',
-                      value: isTask2On,
-                      onChanged: (value) {
-                        setState(() {
-                          isTask2On = value;
-                          updateServiceData();
-                        });
-                        _saveSwitchState("task2", value);
-                      },
-                    ),
-                    _buildAlarmSwitch(
-                      title: 'Chiller Notification',
-                      value: isTask3On,
-                      onChanged: (value) {
-                        setState(() {
-                          isTask3On = value;
-                          updateServiceData();
-                        });
-                        _saveSwitchState("task3", value);
-                      },
-                    ),
-                    _buildAlarmSwitch(
-                      title: 'Tk201 Notification',
-                      value: isTask4On,
-                      onChanged: (value) {
-                        setState(() {
-                          isTask4On = value;
-                          updateServiceData();
-                        });
-                        _saveSwitchState("task4", value);
-                      },
-                    ),
-                    _buildAlarmSwitch(
-                      title: 'Tk202 Notification',
-                      value: isTask5On,
-                      onChanged: (value) {
-                        setState(() {
-                          isTask5On = value;
-                          updateServiceData();
-                        });
-                        _saveSwitchState("task5", value);
-                      },
-                    ),
-                    _buildAlarmSwitch(
-                      title: 'Tk103 Notification',
-                      value: isTask6On,
-                      onChanged: (value) {
-                        setState(() {
-                          isTask6On = value;
-                          updateServiceData();
-                        });
-                        _saveSwitchState("task6", value);
-                      },
-                    ),
-                    _buildAlarmSwitch(
-                      title: 'AHU LB Notification',
-                      value: isTask7On,
-                      onChanged: (value) {
-                        setState(() {
-                          isTask7On = value;
-                          updateServiceData();
-                        });
-                        _saveSwitchState("task7", value);
-                      },
-                    ),
-                    // ...existing code...
-                    _buildAlarmSwitch(
-                      title: 'UF Notification',
-                      value: isTask8On,
-                      onChanged: (value) {
-                        setState(() {
-                          isTask8On = value;
-                          updateServiceData();
-                        });
-                        _saveSwitchState("task8", value);
-                      },
-                    ),
-                    _buildAlarmSwitch(
-                      title: 'Fault Pump Notification',
-                      value: isTask9On,
-                      onChanged: (value) {
-                        setState(() {
-                          isTask9On = value;
-                          updateServiceData();
-                        });
-                        _saveSwitchState("task9", value);
-                      },
-                    ),
-                    _buildAlarmSwitch(
-                      title: 'Surface Tank Notification',
-                      value: isTask10On,
-                      onChanged: (value) {
-                        setState(() {
-                          isTask10On = value;
-                          updateServiceData();
-                        });
-                        _saveSwitchState("task10", value);
-                      },
+                    const EdgeInsets.symmetric(vertical: 16.0, horizontal: 6.0),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.12),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
                     ),
                   ],
+                ),
+                child: Column(
+                  children: [
+                    const Text(
+                      "Alarm Notification Settings",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Center(
+                      child: Container(
+                        width: 170,
+                        height: 2,
+                        color: Colors.black,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            children: [
+                              _buildAlarmSwitch(
+                                  title: 'Boiler',
+                                  value: isTask1On,
+                                  onChanged: (value) {
+                                    setState(() {
+                                      isTask1On = value;
+                                      updateServiceData();
+                                    });
+                                    _saveSwitchState("task1", value);
+                                  }),
+                              _buildAlarmSwitch(
+                                  title: 'OFDA',
+                                  value: isTask2On,
+                                  onChanged: (value) {
+                                    setState(() {
+                                      isTask2On = value;
+                                      updateServiceData();
+                                    });
+                                    _saveSwitchState("task2", value);
+                                  }),
+                              _buildAlarmSwitch(
+                                  title: 'Chiller',
+                                  value: isTask3On,
+                                  onChanged: (value) {
+                                    setState(() {
+                                      isTask3On = value;
+                                      updateServiceData();
+                                    });
+                                    _saveSwitchState("task3", value);
+                                  }),
+                              _buildAlarmSwitch(
+                                  title: 'Vent Tk 201',
+                                  value: isTask4On,
+                                  onChanged: (value) {
+                                    setState(() {
+                                      isTask4On = value;
+                                      updateServiceData();
+                                    });
+                                    _saveSwitchState("task4", value);
+                                  }),
+                              _buildAlarmSwitch(
+                                  title: 'Vent Tk 202',
+                                  value: isTask5On,
+                                  onChanged: (value) {
+                                    setState(() {
+                                      isTask5On = value;
+                                      updateServiceData();
+                                    });
+                                    _saveSwitchState("task5", value);
+                                  }),
+                            ],
+                          ),
+                        ),
+                        SizedBox(width: 16), // Spasi antar kolom
+                        Expanded(
+                          child: Column(
+                            children: [
+                              _buildAlarmSwitch(
+                                  title: 'Vent Tk 103',
+                                  value: isTask6On,
+                                  onChanged: (value) {
+                                    setState(() {
+                                      isTask6On = value;
+                                      updateServiceData();
+                                    });
+                                    _saveSwitchState("task6", value);
+                                  }),
+                              _buildAlarmSwitch(
+                                  title: 'LBENG-AHU-04',
+                                  value: isTask7On,
+                                  onChanged: (value) {
+                                    setState(() {
+                                      isTask7On = value;
+                                      updateServiceData();
+                                    });
+                                    _saveSwitchState("task7", value);
+                                  }),
+                              _buildAlarmSwitch(
+                                  title: 'UF',
+                                  value: isTask8On,
+                                  onChanged: (value) {
+                                    setState(() {
+                                      isTask8On = value;
+                                      updateServiceData();
+                                    });
+                                    _saveSwitchState("task8", value);
+                                  }),
+                              _buildAlarmSwitch(
+                                  title: 'Domestic Pump',
+                                  value: isTask9On,
+                                  onChanged: (value) {
+                                    setState(() {
+                                      isTask9On = value;
+                                      updateServiceData();
+                                    });
+                                    _saveSwitchState("task9", value);
+                                  }),
+                              _buildAlarmSwitch(
+                                  title: 'Domestic Tank',
+                                  value: isTask10On,
+                                  onChanged: (value) {
+                                    setState(() {
+                                      isTask10On = value;
+                                      updateServiceData();
+                                    });
+                                    _saveSwitchState("task10", value);
+                                  }),
+                            ],
+                          ),
+                        ),
+                      ],
+                    )
+                  ],
+                )),
+            const SizedBox(height: 24),
+            Center(
+              child: Text(
+                'Combisense © 2025 — Developed by Utitech Team',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey,
+                  fontStyle: FontStyle.italic,
                 ),
               ),
             ),
@@ -620,7 +662,7 @@ class _HomePageState extends State<HomePage> {
         children: [
           Text(
             title,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
           ),
           Switch(
             value: value,
@@ -844,6 +886,20 @@ class _HomePageState extends State<HomePage> {
                         chillerStream: _chillerSubject.stream,
                         ufStream: _ufSubject.stream,
                       ),
+                      SingleChildScrollView(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12.0, vertical: 8.0),
+                        child: Column(
+                          children: const [
+                            SizedBox(height: 12),
+                            ArtesisTimerCard(
+                                number: 2, label: 'Timer Artesis 2'),
+                            SizedBox(height: 12),
+                            ArtesisTimerCard(
+                                number: 3, label: 'Timer Artesis 3'),
+                          ],
+                        ),
+                      ),
                       VentFilterPage(
                         key: const PageStorageKey('VentFilter'),
                         tk201: tk201,
@@ -863,16 +919,21 @@ class _HomePageState extends State<HomePage> {
                     ],
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 2.0),
-                  child: SmoothPageIndicator(
-                    controller: _pageController,
-                    count: 3,
-                    effect: WormEffect(
-                      dotHeight: 8.0,
-                      dotWidth: 8.0,
-                      activeDotColor: const Color(0xFF532F8F),
-                      dotColor: Colors.grey.withOpacity(0.5),
+                Positioned(
+                  bottom: 8,
+                  left: 0,
+                  right: 0,
+                  top: 0,
+                  child: Center(
+                    child: SmoothPageIndicator(
+                      controller: _pageController,
+                      count: 4,
+                      effect: WormEffect(
+                        dotHeight: 8.0,
+                        dotWidth: 8.0,
+                        activeDotColor: const Color(0xFF532F8F),
+                        dotColor: Colors.grey.withOpacity(0.5),
+                      ),
                     ),
                   ),
                 ),

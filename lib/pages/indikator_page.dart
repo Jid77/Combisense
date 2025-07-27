@@ -105,14 +105,14 @@ class indikatorPage extends StatelessWidget {
                                       padding: const EdgeInsets.symmetric(
                                           vertical: 4, horizontal: 12),
                                       decoration: BoxDecoration(
-                                        color: status == 0
+                                        color: status == 1
                                             ? const Color(0xFF6FCF97)
                                             : const Color(0xFFFF6B6B),
                                         borderRadius:
                                             BorderRadius.circular(8.0),
                                       ),
                                       child: Text(
-                                        status == 0 ? "Normal" : "Abnormal",
+                                        status == 1 ? "Normal" : "Abnormal",
                                         style: const TextStyle(
                                           color: Colors.white,
                                           fontSize: 13,
@@ -129,15 +129,15 @@ class indikatorPage extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  // const SizedBox(height: 4),
 
                   // === Grid Status Boiler, OFDA, Chiller, UF ===
                   GridView.count(
                     crossAxisCount: 2,
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
-                    mainAxisSpacing: 16,
-                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 10,
+                    crossAxisSpacing: 10,
                     childAspectRatio: 1.3,
                     children: [
                       StreamBuilder<int>(
