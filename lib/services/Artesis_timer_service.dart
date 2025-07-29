@@ -32,7 +32,7 @@ class ArtesisTimerService {
   }
 
   void setPreset(double value) {
-    _db.child('commands/artesis${number}_preset_set').set(value);
+    _db.child('commands/artesis${number}_preset_set').set(value * 10);
   }
 
   void triggerReset() {

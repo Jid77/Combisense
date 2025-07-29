@@ -19,7 +19,7 @@ class VentFilterService {
       final data = event.snapshot.value as Map?;
       if (data != null) {
         // final pv = data[name];
-        final sp = data['${name}_preset'];
+        final sp = data['${name}_sv'];
         // if (pv != null) _pvController.add((pv as num).toDouble());
         if (sp != null) _spController.add((sp as num).toDouble());
       }
@@ -27,7 +27,7 @@ class VentFilterService {
   }
 
   void setPreset(double value) {
-    _db.child('commands/${name}_preset_set').set(value);
+    _db.child('commands/${name}_sv_set').set(value);
   }
 
   void dispose() {

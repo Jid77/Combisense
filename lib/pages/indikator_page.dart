@@ -105,14 +105,14 @@ class indikatorPage extends StatelessWidget {
                                       padding: const EdgeInsets.symmetric(
                                           vertical: 4, horizontal: 12),
                                       decoration: BoxDecoration(
-                                        color: status == 1
+                                        color: status == 0
                                             ? const Color(0xFF6FCF97)
                                             : const Color(0xFFFF6B6B),
                                         borderRadius:
                                             BorderRadius.circular(8.0),
                                       ),
                                       child: Text(
-                                        status == 1 ? "Normal" : "Abnormal",
+                                        status == 0 ? "Normal" : "Abnormal",
                                         style: const TextStyle(
                                           color: Colors.white,
                                           fontSize: 13,
@@ -144,7 +144,7 @@ class indikatorPage extends StatelessWidget {
                         stream: boilerStream,
                         builder: (context, snapshot) {
                           final status = snapshot.data ?? 0;
-                          return _buildStatusWidget(
+                          return _buildStatusWidget0(
                             'Boiler',
                             status,
                             'assets/images/3dboiler.png',
@@ -157,7 +157,7 @@ class indikatorPage extends StatelessWidget {
                         stream: ofdaStream,
                         builder: (context, snapshot) {
                           final status = snapshot.data ?? 0;
-                          return _buildStatusWidget(
+                          return _buildStatusWidget0(
                             'OFDA',
                             status,
                             'assets/images/3dofda.png',
@@ -170,7 +170,7 @@ class indikatorPage extends StatelessWidget {
                         stream: chillerStream,
                         builder: (context, snapshot) {
                           final status = snapshot.data ?? 0;
-                          return _buildStatusWidget(
+                          return _buildStatusWidget1(
                             'Chiller',
                             status,
                             'assets/images/3dchiller.png',
@@ -183,7 +183,7 @@ class indikatorPage extends StatelessWidget {
                         stream: ufStream,
                         builder: (context, snapshot) {
                           final status = snapshot.data ?? 0;
-                          return _buildStatusWidget(
+                          return _buildStatusWidget0(
                             'UF',
                             status,
                             'assets/images/UF.png',
@@ -203,7 +203,7 @@ class indikatorPage extends StatelessWidget {
     );
   }
 
-  Widget _buildStatusWidget(
+  Widget _buildStatusWidget1(
     String label,
     int status,
     String assetImage,
@@ -278,4 +278,80 @@ class indikatorPage extends StatelessWidget {
       ),
     );
   }
+}
+
+Widget _buildStatusWidget0(
+  String label,
+  int status,
+  String assetImage,
+  double imageWidth,
+  double imageHeight,
+) {
+  return Container(
+    padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 8.0),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.grey.withOpacity(0.12),
+          blurRadius: 4,
+          offset: const Offset(0, 2),
+        ),
+      ],
+    ),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Image.asset(
+          assetImage,
+          width: imageWidth,
+          height: imageHeight,
+          fit: BoxFit.contain,
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                softWrap: true,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 10),
+
+              // ✅ Tampilkan status teks, bukan bulat lagi
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
+                decoration: BoxDecoration(
+                  color: status == 0
+                      ? const Color(0xFF6FCF97) // Hijau: Normal
+                      : const Color(0xFFFF6B6B), // Merah: Abnormal
+                  borderRadius: BorderRadius.circular(8.0),
+                ),
+                child: Text(
+                  status == 0 ? "Normal" : "Abnormal",
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
 }

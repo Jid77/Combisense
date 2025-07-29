@@ -20,6 +20,7 @@ import 'lbeng04_page.dart';
 import 'vent_filter_page.dart';
 import 'package:combisense/pages/artesis_timer_card.dart';
 import 'package:rxdart/rxdart.dart';
+import 'package:combisense/services/tf3_service.dart';
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
@@ -34,6 +35,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final dataService = DataService();
   final PageStorageBucket _bucket = PageStorageBucket();
+  final _tf3Service = Tf3Service(name: 'tf3');
 
   final List<FlSpot> _tk201Data = [];
   final List<FlSpot> _tk202Data = [];
@@ -294,6 +296,7 @@ class _HomePageState extends State<HomePage> {
     _highSubject.close();
     _lowSubject.close();
     // _timer.cancel();
+    _tf3Service.dispose();
     _pageController.dispose();
     super.dispose();
   }
@@ -892,11 +895,9 @@ class _HomePageState extends State<HomePage> {
                         child: Column(
                           children: const [
                             SizedBox(height: 12),
-                            ArtesisTimerCard(
-                                number: 2, label: 'Timer Artesis 2'),
+                            ArtesisTimerCard(number: 2, label: 'Artesis 2'),
                             SizedBox(height: 12),
-                            ArtesisTimerCard(
-                                number: 3, label: 'Timer Artesis 3'),
+                            ArtesisTimerCard(number: 4, label: 'Artesis 4'),
                           ],
                         ),
                       ),
@@ -912,8 +913,7 @@ class _HomePageState extends State<HomePage> {
                         tempAhu04lb: temp_ahu04lb,
                         rhAhu04lb: rh_ahu04lb,
                         chartWidget: _buildChart_ahu04lb(),
-                        buildTempWidget: _buildCircularValueTempAhu,
-                        buildHumidityWidget: _buildCircularValueRhAhu,
+                        tf3Service: _tf3Service,
                       ),
                     ],
                   ),

@@ -39,7 +39,7 @@ class _VentFilterPageState extends State<VentFilterPage> {
       builder: (context, snapshot) {
         final sp = snapshot.data?.toStringAsFixed(0) ?? '--';
         return Text(
-          "SP: $sp",
+          "SV: $sp",
           style: const TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w500,

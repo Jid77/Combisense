@@ -116,7 +116,7 @@ class _ArtesisTimerCardState extends State<ArtesisTimerCard> {
                   children: [
                     _buildTimerValue("PV", _pv),
                     const SizedBox(width: 20),
-                    _buildTimerValue("SP", _preset),
+                    _buildTimerValue("SV", _preset),
                   ],
                 ),
               ],

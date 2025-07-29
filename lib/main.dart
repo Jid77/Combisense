@@ -45,7 +45,11 @@ void main() async {
 
   await initializeService();
 
-  runApp(MyApp());
+  runZonedGuarded(() {
+    runApp(MyApp());
+  }, (error, stack) {
+    print("Uncaught Flutter error: $error");
+  });
 }
 
 // Fungsi untuk meminta izin notifikasi
