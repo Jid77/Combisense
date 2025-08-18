@@ -12,7 +12,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # In Android, build-name is used as versionName while build-number used as versionCode.
 # Read more about Android versioning at https://developer.android.com/studio/publish/versioning
 # In iOS, build-name is used as CFBundleShortVersionString while build-number is used as CFBundleVersion.
-# Read more about iOS versioning at
+# Read more about iOS versioning at0
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
@@ -68,7 +68,12 @@ dev_dependencies:
 flutter_icons:
   android: true
   ios: true
-  image_path: "assets/images/C.PNG"
+  image_path: "assets/images/app_icon_ios.png"          # fallback & untuk iOS
+  adaptive_icon_background: "assets/images/p45_icon_background.png"
+  adaptive_icon_foreground: "assets/images/p45_icon_foreground.png"
+
+
+ 
 
 
 # For information on the generic Dart part of this file, see the
@@ -98,6 +103,16 @@ flutter:
   - assets/images/3dofda.png
   - assets/images/waterpump.png
   - assets/images/UF.png
+  - assets/images/foreground.png
+  - assets/images/icon_foreground.png
+  - assets/images/icon_background.png
+  - assets/images/app_icon_ios.png
+  - assets/images/p55_icon_foreground.png
+  - assets/images/p55_icon_background.png
+  - assets/images/p45_icon_foreground.png
+  - assets/images/p45_icon_background.png
+
+
 
   fonts:
     - family: TabacSans

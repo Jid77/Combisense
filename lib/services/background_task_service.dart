@@ -1,12 +1,12 @@
-// ignore_for_file: non_constant_identifier_names, avoid_print
-
 import 'dart:async';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:hive/hive.dart';
+import 'package:flutter/foundation.dart';
 
 // Inisialisasi notifikasi lokal
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
@@ -17,6 +17,10 @@ class DataService {
   factory DataService() => _instance;
 
   late final StreamSubscription<DatabaseEvent> _sensorSubscription;
+  final ValueNotifier<double?> m800Toc = ValueNotifier<double?>(null);
+  final ValueNotifier<double?> m800Temp = ValueNotifier<double?>(null);
+  final ValueNotifier<double?> m800Conduct = ValueNotifier<double?>(null);
+  final ValueNotifier<int?> m800Lamp = ValueNotifier<int?>(null);
 
   DataService._internal() {
     _sensorSubscription = _sensorRef.onValue.listen((event) {
@@ -64,8 +68,6 @@ class DataService {
   Stream<int> get lowSurfaceTankStream =>
       _lowSurfaceTankStreamController.stream;
 
-  // 🚫 Tidak perlu start/restart/stop listener lagi
-
   void dispose() {
     _sensorSubscription.cancel();
     _boilerStreamController.close();
@@ -105,18 +107,34 @@ class DataService {
       final dataSnapshot = await _database.child('sensor_data').get();
       if (dataSnapshot.value != null) {
         final data = Map<dynamic, dynamic>.from(dataSnapshot.value as Map);
+
         final tk201 =
             (data['tk201'] is num) ? (data['tk201'] as num).toDouble() : 0.0;
         final tk202 =
             (data['tk202'] is num) ? (data['tk202'] as num).toDouble() : 0.0;
         final tk103 =
             (data['tk103'] is num) ? (data['tk103'] as num).toDouble() : 0.0;
+
         final temp_ahu04lb = (data['temp_ahu04lb'] is num)
             ? (data['temp_ahu04lb'] as num).toDouble()
             : 0.0;
         final rh_ahu04lb = (data['rh_ahu04lb'] is num)
             ? (data['rh_ahu04lb'] as num).toDouble()
             : 0.0;
+
+        // ====== M800 ======
+        final m800_toc = (data['m800_toc'] is num)
+            ? (data['m800_toc'] as num).toDouble()
+            : 0.0;
+        final m800_temp = (data['m800_temp'] is num)
+            ? (data['m800_temp'] as num).toDouble()
+            : 0.0;
+        final m800_conduct = (data['m800_conduct'] is num)
+            ? (data['m800_conduct'] as num).toDouble()
+            : 0.0;
+        final m800_lamp =
+            (data['m800_lamp'] is num) ? (data['m800_lamp'] as num).toInt() : 0;
+
         final boiler = data['boiler'] ?? 0;
         final ofda = data['ofda'] ?? 0;
         final chiller = data['chiller'] ?? 0;
@@ -126,6 +144,16 @@ class DataService {
         final lowSurfaceTank = data['low_surface_tank'] ?? 0;
 
         final timestamp = DateTime.now();
+        // update latest (buat UI)
+        m800Toc.value = m800_toc;
+        m800Temp.value = m800_temp;
+        m800Conduct.value = m800_conduct;
+        m800Lamp.value = m800_lamp;
+
+        // simpan histori (toc/temp/conduct saja) — rolling window
+        await _appendHistory('m800_toc_history', m800_toc, timestamp);
+        await _appendHistory('m800_temp_history', m800_temp, timestamp);
+        await _appendHistory('m800_conduct_history', m800_conduct, timestamp);
 
         await _saveToHive(
           tk201,
@@ -141,6 +169,10 @@ class DataService {
           highSurfaceTank,
           lowSurfaceTank,
           timestamp,
+          m800_toc: m800_toc,
+          m800_temp: m800_temp,
+          m800_conduct: m800_conduct,
+          m800_lamp: m800_lamp,
         );
 
         updateCallback(
@@ -187,20 +219,23 @@ class DataService {
   }
 
   Future<void> _saveToHive(
-    double tk201,
-    double tk202,
-    double tk103,
-    double temp_ahu04lb,
-    double rh_ahu04lb,
-    int boiler,
-    int ofda,
-    int chiller,
-    int uf,
-    int faultPump,
-    int highSurfaceTank,
-    int lowSurfaceTank,
-    DateTime timestamp,
-  ) async {
+      double tk201,
+      double tk202,
+      double tk103,
+      double temp_ahu04lb,
+      double rh_ahu04lb,
+      int boiler,
+      int ofda,
+      int chiller,
+      int uf,
+      int faultPump,
+      int highSurfaceTank,
+      int lowSurfaceTank,
+      DateTime timestamp,
+      {double? m800_toc,
+      double? m800_temp,
+      double? m800_conduct,
+      int? m800_lamp}) async {
     final formatter = DateFormat('dd/MM/yy HH:mm');
     final formattedTimestamp = formatter.format(timestamp);
     final sensorDataBox = await Hive.openBox('sensorDataBox');
@@ -218,6 +253,10 @@ class DataService {
       'fault_pump': faultPump,
       'high_surface_tank': highSurfaceTank,
       'low_surface_tank': lowSurfaceTank,
+      if (m800_toc != null) 'm800_toc': m800_toc,
+      if (m800_temp != null) 'm800_temp': m800_temp,
+      if (m800_conduct != null) 'm800_conduct': m800_conduct,
+      if (m800_lamp != null) 'm800_lamp': m800_lamp,
     };
     sensorDataList.add(sensorData);
     await sensorDataBox.put('sensorDataList', sensorDataList);
@@ -236,10 +275,27 @@ class DataService {
       'fault_pump': faultPump,
       'high_surface_tank': highSurfaceTank,
       'low_surface_tank': lowSurfaceTank,
+      if (m800_toc != null) 'm800_toc': m800_toc,
+      if (m800_temp != null) 'm800_temp': m800_temp,
+      if (m800_conduct != null) 'm800_conduct': m800_conduct,
+      if (m800_lamp != null) 'm800_lamp': m800_lamp,
     };
     await sensorDataBox.put('sensorStatus', sensorStatus);
 
     print("Data sensor disimpan ke Hive");
+  }
+
+  Future<void> _appendHistory(String boxName, double value, DateTime t) async {
+    final box = await Hive.openBox(boxName);
+    await box.add({'t': t.millisecondsSinceEpoch, 'v': value});
+    // rolling window 500
+    const maxPoints = 500;
+    if (box.length > maxPoints) {
+      final over = box.length - maxPoints;
+      for (int i = 0; i < over; i++) {
+        await box.deleteAt(0);
+      }
+    }
   }
 
   Future<void> loadInitialData(
@@ -321,23 +377,23 @@ class DataService {
     final List<_AlarmRule> alarmRules = [
       _AlarmRule(
         enabled: prefs.getBool("task1") ?? false,
-        condition: () => boiler == 0,
+        condition: () => boiler == 1,
         message: "Warning: Boiler System Abnormal",
-        name: "boiler",
+        name: "Boiler System Abnormal",
         value: boiler,
       ),
       _AlarmRule(
         enabled: prefs.getBool("task2") ?? false,
-        condition: () => ofda == 0,
+        condition: () => ofda == 1,
         message: "Warning: OFDA System Abnormal",
-        name: "ofda",
+        name: "OFDA System Abnormal",
         value: ofda,
       ),
       _AlarmRule(
         enabled: prefs.getBool("task3") ?? false,
         condition: () => chiller == 0,
         message: "Warning: Chiller System Abnormal",
-        name: "chiller",
+        name: "Chiller System Abnormal",
         value: chiller,
       ),
       _AlarmRule(
@@ -372,23 +428,23 @@ class DataService {
       ),
       _AlarmRule(
         enabled: prefs.getBool("task8") ?? false,
-        condition: () => uf == 0,
+        condition: () => uf == 1,
         message: "Warning: UF System Abnormal",
-        name: "uf",
+        name: "UF System Abnormal",
         value: uf,
       ),
       _AlarmRule(
         enabled: prefs.getBool("task9") ?? false,
         condition: () => faultPump == 1,
         message: "Warning: Fault Pump Detected",
-        name: "fault_pump",
+        name: "Fault Domestic Pump",
         value: faultPump,
       ),
       _AlarmRule(
         enabled: prefs.getBool("task10") ?? false,
         condition: () => lowSurfaceTank == 1,
         message: "Warning: Low Surface Tank Detected",
-        name: "low_surface_tank",
+        name: "Low Domestic Tank",
         value: lowSurfaceTank,
       ),
     ];
@@ -401,6 +457,9 @@ class DataService {
           'alarmName': rule.name,
           'sensorValue': rule.value,
         });
+        await box.flush(); // <-- penting, commit ke disk
+
+        FlutterBackgroundService().invoke('alarm_update');
       }
     }
 
@@ -408,7 +467,6 @@ class DataService {
   }
 }
 
-/// Class bantu alarm
 class _AlarmRule {
   final bool enabled;
   final bool Function() condition;

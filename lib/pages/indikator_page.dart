@@ -210,72 +210,80 @@ class indikatorPage extends StatelessWidget {
     double imageWidth,
     double imageHeight,
   ) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 8.0),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.12),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Container(
+          width: constraints.maxWidth, // ikuti lebar parent
+          padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 8.0),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withOpacity(0.12),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Image.asset(
-            assetImage,
-            width: imageWidth,
-            height: imageHeight,
-            fit: BoxFit.contain,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Text(
-                  label,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
-                  ),
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  softWrap: true,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 10),
-
-                // ✅ Tampilkan status teks, bukan bulat lagi
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
-                  decoration: BoxDecoration(
-                    color: status == 1
-                        ? const Color(0xFF6FCF97) // Hijau: Normal
-                        : const Color(0xFFFF6B6B), // Merah: Abnormal
-                    borderRadius: BorderRadius.circular(8.0),
-                  ),
-                  child: Text(
-                    status == 1 ? "Normal" : "Abnormal",
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Image.asset(
+                assetImage,
+                width: imageWidth,
+                height: imageHeight,
+                fit: BoxFit.contain,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        label,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 4, horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: status == 1
+                            ? const Color(0xFF6FCF97)
+                            : const Color(0xFFFF6B6B),
+                        borderRadius: BorderRadius.circular(8.0),
+                      ),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          status == 0 ? "Normal" : "Abnormal",
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          maxLines: 1,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -287,71 +295,79 @@ Widget _buildStatusWidget0(
   double imageWidth,
   double imageHeight,
 ) {
-  return Container(
-    padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 8.0),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(14),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.grey.withOpacity(0.12),
-          blurRadius: 4,
-          offset: const Offset(0, 2),
+  return LayoutBuilder(
+    builder: (context, constraints) {
+      return Container(
+        width: constraints.maxWidth, // ikuti lebar parent
+        padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 8.0),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.12),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
-      ],
-    ),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Image.asset(
-          assetImage,
-          width: imageWidth,
-          height: imageHeight,
-          fit: BoxFit.contain,
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                softWrap: true,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 10),
-
-              // ✅ Tampilkan status teks, bukan bulat lagi
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
-                decoration: BoxDecoration(
-                  color: status == 0
-                      ? const Color(0xFF6FCF97) // Hijau: Normal
-                      : const Color(0xFFFF6B6B), // Merah: Abnormal
-                  borderRadius: BorderRadius.circular(8.0),
-                ),
-                child: Text(
-                  status == 0 ? "Normal" : "Abnormal",
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Image.asset(
+              assetImage,
+              width: imageWidth,
+              height: imageHeight,
+              fit: BoxFit.contain,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      label,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 10),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: status == 0
+                          ? const Color(0xFF6FCF97)
+                          : const Color(0xFFFF6B6B),
+                      borderRadius: BorderRadius.circular(8.0),
+                    ),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        status == 0 ? "Normal" : "Abnormal",
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        maxLines: 1,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-      ],
-    ),
+      );
+    },
   );
 }

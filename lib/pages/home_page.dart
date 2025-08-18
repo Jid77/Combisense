@@ -19,6 +19,7 @@ import 'indikator_page.dart';
 import 'lbeng04_page.dart';
 import 'vent_filter_page.dart';
 import 'package:combisense/pages/artesis_timer_card.dart';
+import 'package:combisense/pages/m800_page.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:combisense/services/tf3_service.dart';
 
@@ -36,7 +37,9 @@ class _HomePageState extends State<HomePage> {
   final dataService = DataService();
   final PageStorageBucket _bucket = PageStorageBucket();
   final _tf3Service = Tf3Service(name: 'tf3');
-
+  StreamSubscription? _alarmUpdateSub;
+  Timer? _reloadDebounce;
+  bool _reloading = false;
   final List<FlSpot> _tk201Data = [];
   final List<FlSpot> _tk202Data = [];
   final List<FlSpot> _tk103Data = [];
@@ -110,11 +113,13 @@ class _HomePageState extends State<HomePage> {
         dataService.highSurfaceTankStream.listen(_highSubject.add);
     _lowSubscription = dataService.lowSurfaceTankStream.listen(_lowSubject.add);
 
-    // if (!_isListenerStarted) {
-    //   _isListenerStarted = true;
-    // }
     _sensorDataBox = Hive.box('sensorDataBox');
     _alarmHistoryBox = Hive.box('alarmHistoryBox');
+    // Dengar sinyal dari background saat ada alarm baru
+    _alarmUpdateSub =
+        FlutterBackgroundService().on('alarm_update').listen((_) async {
+      await _reloadAlarmBox();
+    });
     // _initHive(); // Inisialisasi Hive sebelum digunakan
     _loadSwitchState();
     executeFetchData();
@@ -134,16 +139,69 @@ class _HomePageState extends State<HomePage> {
     //   //   // _loadDataFromHive();
     //   //   // print("Isi Hive periodic: ${_sensorDataBox.toMap()}");
     // });
-    _isLoading = false;
+    _boot();
+  }
+
+  Future<void> _boot() async {
+    if (mounted) setState(() => _isLoading = true);
+    try {
+      // pastikan Hive box kebuka di release
+      if (!Hive.isBoxOpen('sensorDataBox')) {
+        _sensorDataBox = await Hive.openBox('sensorDataBox');
+      } else {
+        _sensorDataBox = Hive.box('sensorDataBox');
+      }
+      if (!Hive.isBoxOpen('alarmHistoryBox')) {
+        _alarmHistoryBox = await Hive.openBox('alarmHistoryBox');
+      } else {
+        _alarmHistoryBox = Hive.box('alarmHistoryBox');
+      }
+
+      // listener alarm dari background
+      _alarmUpdateSub =
+          FlutterBackgroundService().on('alarm_update').listen((_) async {
+        await _reloadAlarmBox();
+      });
+
+      // state switch/checkbox alarm, dsb
+      await _loadSwitchState();
+
+      // fetch awal (nggak usah ditunggu pun boleh)
+      await executeFetchData();
+
+      // Optional: kalau mau set nilai awal dari Hive
+      // await _loadInitialData();
+    } catch (e, st) {
+      debugPrint('BOOT FAILED: $e\n$st');
+    } finally {
+      if (!mounted) return;
+      setState(() => _isLoading = false); // ← ini kuncinya
+    }
+  }
+
+  Future<void> _reloadAlarmBox() async {
+    // debounce singkat agar tidak close/open bertubi-tubi
+    _reloadDebounce?.cancel();
+    _reloadDebounce = Timer(const Duration(milliseconds: 250), () async {
+      if (_reloading) return;
+      _reloading = true;
+      try {
+        if (Hive.isBoxOpen('alarmHistoryBox')) {
+          await _alarmHistoryBox.close();
+        }
+        _alarmHistoryBox = await Hive.openBox('alarmHistoryBox');
+        if (mounted) setState(() {});
+      } finally {
+        _reloading = false;
+      }
+    });
   }
 
   Future<void> _initHive() async {
-    await Hive.openBox(
-        'sensorDataBox'); // Buka Hive Box bernama 'sensorDataBox'
+    await Hive.openBox('sensorDataBox');
     await Hive.openBox('alarmHistoryBox');
   }
 
-// Fungsi untuk memuat data terbaru dari Hive di awal aplikasi
   Future<void> _loadInitialData() async {
     final latestData = _sensorDataBox.get('sensorDataList', defaultValue: []);
     if (latestData.isNotEmpty) {
@@ -167,7 +225,6 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-// Fungsi untuk menjalankan fetchData dari DataService
   Future<void> executeFetchData() async {
     List<FlSpot> tk201Data = [];
     List<FlSpot> tk202Data = [];
@@ -296,6 +353,8 @@ class _HomePageState extends State<HomePage> {
     _highSubject.close();
     _lowSubject.close();
     // _timer.cancel();
+    _reloadDebounce?.cancel();
+    _alarmUpdateSub?.cancel();
     _tf3Service.dispose();
     _pageController.dispose();
     super.dispose();
@@ -323,62 +382,50 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
             // Konten utama
-            const Positioned(
-              top: 100,
-              left: 10,
-              right: 0,
-              child: Center(
-                child: Row(
-                  // mainAxisAlignment: MainAxisAlignment.center,
-                  // crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Text(
-                      'Utility Monitoring Dashboard',
-                      style: TextStyle(
+            Padding(
+              padding: const EdgeInsets.only(top: 100, left: 16, right: 16),
+              child: Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      'Utility Center',
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
                       ),
                     ),
-                    // SizedBox(width: 5), // Jarak antara teks dan gambar
-                    // Image.asset(
-                    //   'assets/images/combiwhite.png', // Ganti dengan path gambar Anda
-                    //   height: 35, // Atur tinggi gambar sesuai kebutuhan
-                    // ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(
+                      width: 8), // Jarak kecil antara teks dan gambar
+                  Image.asset(
+                    'assets/images/combiwhite.png',
+                    height: 35,
+                    fit: BoxFit.contain,
+                  ),
+                ],
               ),
             ),
-            Positioned(
-              top: 94,
-              left: 345,
-              right: 0,
-              child: Center(
-                child: Row(
-                  // mainAxisAlignment: MainAxisAlignment.center,
-                  // crossAxisAlignment: CrossAxisAlignment.,
-                  children: [
-                    Image.asset(
-                      'assets/images/combiwhite.png', // Ganti dengan path gambar Anda
-                      height: 35, // Atur tinggi gambar sesuai kebutuhan
-                    ),
-                  ],
-                ),
-              ),
-            ),
+
             // Konten berdasarkan indeks yang dipilih
             IndexedStack(
               index: _selectedIndex,
               children: [
                 _buildHomeContent(),
-                _buildHistoryContent(),
-                _buildAlarmSwitchContent(),
+                Padding(
+                  padding: const EdgeInsets.only(top: 60),
+                  child: _buildHistoryContent(context),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 60),
+                  child: _buildAlarmSwitchContent(context),
+                ),
               ],
             ),
           ],
         ),
         bottomNavigationBar: Container(
-          // margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
           margin: const EdgeInsets.only(left: 10, right: 10, bottom: 6, top: 5),
           decoration: BoxDecoration(
             color: Colors.white,
@@ -426,9 +473,43 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildAlarmSwitchContent() {
+  Widget _buildAlarmSwitch({
+    required String title,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
     return Padding(
-      padding: const EdgeInsets.only(top: 185.0, left: 16, right: 16),
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Flexible(
+            child: Text(
+              title,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 2,
+            ),
+          ),
+          Switch(
+            value: value,
+            onChanged: onChanged,
+            activeColor: const Color(0xFF532F8F),
+            inactiveTrackColor: const Color(0xFFFF6B6B),
+            inactiveThumbColor: const Color.fromARGB(255, 219, 6, 6),
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Konten utama dengan semua tombol switch dan tombol ekspor
+  Widget _buildAlarmSwitchContent(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+
+    return Padding(
+      padding: EdgeInsets.only(top: screenWidth * 0.35, left: 16, right: 16),
       child: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -437,12 +518,14 @@ class _HomePageState extends State<HomePage> {
               'Settings',
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
-            const Divider(
+            Divider(
               thickness: 2,
               color: Colors.black,
-              indent: 0,
-              endIndent: 300,
+              endIndent: screenWidth * 0.6,
             ),
+            const SizedBox(height: 12),
+
+            // Tombol export
             Center(
               child: ElevatedButton.icon(
                 onPressed: () async {
@@ -461,11 +544,8 @@ class _HomePageState extends State<HomePage> {
                     );
                   }
                 },
-                icon: const Icon(Icons.download, size: 24),
-                label: const Text(
-                  'Export data sensor',
-                  style: TextStyle(fontSize: 16),
-                ),
+                icon: const Icon(Icons.download),
+                label: const Text('Export data sensor'),
                 style: ElevatedButton.styleFrom(
                   foregroundColor: Colors.white,
                   backgroundColor: const Color(0xFF8547b0),
@@ -475,207 +555,179 @@ class _HomePageState extends State<HomePage> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(32),
                   ),
-                  shadowColor: Colors.grey.withOpacity(0.5),
                 ),
               ),
             ),
-            const SizedBox(height: 10),
-            // Satu Card untuk semua switch
+            const SizedBox(height: 16),
+
+            // Switch Panel
             Container(
-                margin:
-                    const EdgeInsets.symmetric(horizontal: 12.0, vertical: 6.0),
-                padding:
-                    const EdgeInsets.symmetric(vertical: 16.0, horizontal: 6.0),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.12),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
+              margin: const EdgeInsets.symmetric(vertical: 6.0),
+              padding: const EdgeInsets.all(16.0),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.12),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  const Text(
+                    "Alarm Notification Settings",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 4),
+                  Center(
+                    child: Container(
+                      width: screenWidth * 0.4,
+                      height: 2,
+                      color: Colors.black,
                     ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    const Text(
-                      "Alarm Notification Settings",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Center(
-                      child: Container(
-                        width: 170,
-                        height: 2,
-                        color: Colors.black,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            children: [
-                              _buildAlarmSwitch(
-                                  title: 'Boiler',
-                                  value: isTask1On,
-                                  onChanged: (value) {
-                                    setState(() {
-                                      isTask1On = value;
-                                      updateServiceData();
-                                    });
-                                    _saveSwitchState("task1", value);
-                                  }),
-                              _buildAlarmSwitch(
-                                  title: 'OFDA',
-                                  value: isTask2On,
-                                  onChanged: (value) {
-                                    setState(() {
-                                      isTask2On = value;
-                                      updateServiceData();
-                                    });
-                                    _saveSwitchState("task2", value);
-                                  }),
-                              _buildAlarmSwitch(
-                                  title: 'Chiller',
-                                  value: isTask3On,
-                                  onChanged: (value) {
-                                    setState(() {
-                                      isTask3On = value;
-                                      updateServiceData();
-                                    });
-                                    _saveSwitchState("task3", value);
-                                  }),
-                              _buildAlarmSwitch(
-                                  title: 'Vent Tk 201',
-                                  value: isTask4On,
-                                  onChanged: (value) {
-                                    setState(() {
-                                      isTask4On = value;
-                                      updateServiceData();
-                                    });
-                                    _saveSwitchState("task4", value);
-                                  }),
-                              _buildAlarmSwitch(
-                                  title: 'Vent Tk 202',
-                                  value: isTask5On,
-                                  onChanged: (value) {
-                                    setState(() {
-                                      isTask5On = value;
-                                      updateServiceData();
-                                    });
-                                    _saveSwitchState("task5", value);
-                                  }),
-                            ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(children: [
+                          _buildAlarmSwitch(
+                            title: 'Boiler',
+                            value: isTask1On,
+                            onChanged: (v) {
+                              setState(() {
+                                isTask1On = v;
+                                updateServiceData();
+                              });
+                              _saveSwitchState("task1", v);
+                            },
                           ),
-                        ),
-                        SizedBox(width: 16), // Spasi antar kolom
-                        Expanded(
-                          child: Column(
-                            children: [
-                              _buildAlarmSwitch(
-                                  title: 'Vent Tk 103',
-                                  value: isTask6On,
-                                  onChanged: (value) {
-                                    setState(() {
-                                      isTask6On = value;
-                                      updateServiceData();
-                                    });
-                                    _saveSwitchState("task6", value);
-                                  }),
-                              _buildAlarmSwitch(
-                                  title: 'LBENG-AHU-04',
-                                  value: isTask7On,
-                                  onChanged: (value) {
-                                    setState(() {
-                                      isTask7On = value;
-                                      updateServiceData();
-                                    });
-                                    _saveSwitchState("task7", value);
-                                  }),
-                              _buildAlarmSwitch(
-                                  title: 'UF',
-                                  value: isTask8On,
-                                  onChanged: (value) {
-                                    setState(() {
-                                      isTask8On = value;
-                                      updateServiceData();
-                                    });
-                                    _saveSwitchState("task8", value);
-                                  }),
-                              _buildAlarmSwitch(
-                                  title: 'Domestic Pump',
-                                  value: isTask9On,
-                                  onChanged: (value) {
-                                    setState(() {
-                                      isTask9On = value;
-                                      updateServiceData();
-                                    });
-                                    _saveSwitchState("task9", value);
-                                  }),
-                              _buildAlarmSwitch(
-                                  title: 'Domestic Tank',
-                                  value: isTask10On,
-                                  onChanged: (value) {
-                                    setState(() {
-                                      isTask10On = value;
-                                      updateServiceData();
-                                    });
-                                    _saveSwitchState("task10", value);
-                                  }),
-                            ],
+                          _buildAlarmSwitch(
+                            title: 'OFDA',
+                            value: isTask2On,
+                            onChanged: (v) {
+                              setState(() {
+                                isTask2On = v;
+                                updateServiceData();
+                              });
+                              _saveSwitchState("task2", v);
+                            },
                           ),
-                        ),
-                      ],
-                    )
-                  ],
-                )),
+                          _buildAlarmSwitch(
+                            title: 'Chiller',
+                            value: isTask3On,
+                            onChanged: (v) {
+                              setState(() {
+                                isTask3On = v;
+                                updateServiceData();
+                              });
+                              _saveSwitchState("task3", v);
+                            },
+                          ),
+                          _buildAlarmSwitch(
+                            title: 'Vent Tk 201',
+                            value: isTask4On,
+                            onChanged: (v) {
+                              setState(() {
+                                isTask4On = v;
+                                updateServiceData();
+                              });
+                              _saveSwitchState("task4", v);
+                            },
+                          ),
+                          _buildAlarmSwitch(
+                            title: 'Vent Tk 202',
+                            value: isTask5On,
+                            onChanged: (v) {
+                              setState(() {
+                                isTask5On = v;
+                                updateServiceData();
+                              });
+                              _saveSwitchState("task5", v);
+                            },
+                          ),
+                        ]),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(children: [
+                          _buildAlarmSwitch(
+                              title: 'Vent Tk 103',
+                              value: isTask6On,
+                              onChanged: (v) {
+                                setState(() {
+                                  isTask6On = v;
+                                  updateServiceData();
+                                });
+                                _saveSwitchState("task6", v);
+                              }),
+                          _buildAlarmSwitch(
+                              title: 'LBENG-AHU-04',
+                              value: isTask7On,
+                              onChanged: (v) {
+                                setState(() {
+                                  isTask7On = v;
+                                  updateServiceData();
+                                });
+                                _saveSwitchState("task7", v);
+                              }),
+                          _buildAlarmSwitch(
+                              title: 'UF',
+                              value: isTask8On,
+                              onChanged: (v) {
+                                setState(() {
+                                  isTask8On = v;
+                                  updateServiceData();
+                                });
+                                _saveSwitchState("task8", v);
+                              }),
+                          _buildAlarmSwitch(
+                              title: 'Domestic Pump',
+                              value: isTask9On,
+                              onChanged: (v) {
+                                setState(() {
+                                  isTask9On = v;
+                                  updateServiceData();
+                                });
+                                _saveSwitchState("task9", v);
+                              }),
+                          _buildAlarmSwitch(
+                              title: 'Domestic Tank',
+                              value: isTask10On,
+                              onChanged: (v) {
+                                setState(() {
+                                  isTask10On = v;
+                                  updateServiceData();
+                                });
+                                _saveSwitchState("task10", v);
+                              }),
+                        ]),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
             const SizedBox(height: 24),
             Center(
               child: Text(
                 'Combisense © 2025 — Developed by Utitech Team',
+                textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: screenWidth * 0.03,
                   color: Colors.grey,
                   fontStyle: FontStyle.italic,
                 ),
               ),
             ),
+            const SizedBox(height: 16),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildAlarmSwitch({
-    required String title,
-    required bool value,
-    required ValueChanged<bool> onChanged,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-          ),
-          Switch(
-            value: value,
-            onChanged: onChanged,
-            activeColor: const Color(0xFF532F8F),
-            inactiveTrackColor: const Color(0xFFFF6B6B),
-            inactiveThumbColor: const Color.fromARGB(255, 219, 6, 6),
-            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          ),
-        ],
       ),
     );
   }
@@ -690,156 +742,170 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  Widget _buildHistoryContent() {
+  Widget _buildHistoryContent(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    final screenWidth = size.width;
+
+    // hitung tinggi area scroll supaya tidak perlu Expanded (menghindari ParentData error)
+    final topPad = screenWidth * 0.35;
+    // perkiraan ruang lain (judul, divider, spacing, padding bawah)
+    final reserved = 140.0;
+    final available =
+        size.height - topPad - reserved - MediaQuery.of(context).padding.bottom;
+    final scrollHeight =
+        available < 220 ? 220.0 : available; // minimal biar bisa di-scroll
+
     return Padding(
-      padding:
-          const EdgeInsets.only(top: 185.0), // Sesuaikan dengan tinggi app bar
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start, // Align ke kiri
-          children: [
-            // Menambahkan judul halaman
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 16.0), // Jarak dari tepi
-              child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start, // Align teks ke kiri
-                children: [
-                  Text(
-                    'Alarm History', // Judul halaman
-                    style: const TextStyle(
-                      fontSize: 20, // Ukuran font untuk judul
-                      fontWeight:
-                          FontWeight.bold, // Membuat judul menjadi tebal
-                      color: Color.fromARGB(255, 0, 0, 0), // Warna judul
-                    ),
-                  ),
-                  Divider(
-                    thickness: 2, // Ketebalan garis
-                    color: Colors.black, // Warna garis
-                    indent: 0, // Jarak dari tepi kiri
-                    endIndent: 280, // Jarak dari tepi kanan
-                  ),
-                ],
+      // parent (IndexedStack) sudah kasih top: 60, jadi cukup kiri/kanan
+      padding: EdgeInsets.only(top: topPad, left: 16, right: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Alarm History',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
-            ),
+              // IconButton(
+              //   icon: Icon(Icons.refresh, color: Color(0xFF532F8F)),
+              //   tooltip: 'Reload',
+              //   onPressed: _reloadAlarmBox,
+              // ),
+            ],
+          ),
+          Divider(
+            thickness: 2,
+            color: Colors.black,
+            endIndent: screenWidth * 0.6,
+          ),
+          // const SizedBox(height: 12),
 
-            // List alarm
-            // Padding(
-            //   padding: const EdgeInsets.only(
-            //       bottom: 68.0), // Padding bottom untuk setiap item
-            ValueListenableBuilder(
-              valueListenable: _alarmHistoryBox.listenable(),
-              builder: (context, Box box, _) {
-                final alarmEntries = box.toMap().entries.toList();
-                print(
-                    'Updated alarm entries: ${alarmEntries.length}'); // Debug print
+          // === AREA SCROLL SAJA UNTUK LIST ===
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: _reloadAlarmBox,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    child: ConstrainedBox(
+                      constraints:
+                          BoxConstraints(minHeight: constraints.maxHeight),
+                      child: ValueListenableBuilder(
+                        valueListenable: _alarmHistoryBox.listenable(),
+                        builder: (context, Box box, _) {
+                          final alarmEntries = box.toMap().entries.toList();
 
-                if (alarmEntries.isEmpty) {
-                  return Center(
-                    child: Text(
-                      'No alarm history found.', // Pesan placeholder
-                      style: TextStyle(fontSize: 16, color: Colors.grey),
+                          DateTime parseTimestamp(dynamic ts) {
+                            if (ts is DateTime) return ts;
+                            final s = ts?.toString() ?? '';
+                            try {
+                              return DateFormat('yyyy-MM-dd HH:mm:ss').parse(s);
+                            } catch (_) {
+                              try {
+                                return DateTime.parse(s);
+                              } catch (_) {
+                                return DateTime.now();
+                              }
+                            }
+                          }
+
+                          alarmEntries.sort((a, b) =>
+                              parseTimestamp(b.value['timestamp']).compareTo(
+                                  parseTimestamp(a.value['timestamp'])));
+
+                          // bangun isi list
+                          final children = <Widget>[];
+
+                          if (alarmEntries.isEmpty) {
+                            children.addAll(const [
+                              SizedBox(height: 160),
+                              Center(
+                                child: Text(
+                                  'No alarm history found.',
+                                  style: TextStyle(
+                                      fontSize: 16, color: Colors.grey),
+                                ),
+                              ),
+                            ]);
+                          } else {
+                            children.addAll(
+                              alarmEntries.map((entry) {
+                                final alarm =
+                                    Map<String, dynamic>.from(entry.value);
+                                final key = entry.key;
+                                final ts = parseTimestamp(alarm['timestamp']);
+                                final formatted =
+                                    DateFormat('MMMM dd, yyyy HH:mm WIB')
+                                        .format(ts);
+                                final title = _buildAlarmTitle(alarm);
+
+                                return Card(
+                                  margin:
+                                      const EdgeInsets.symmetric(vertical: 4),
+                                  elevation: 3,
+                                  color: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(24),
+                                  ),
+                                  child: ListTile(
+                                    contentPadding: const EdgeInsets.all(16),
+                                    title: Text(
+                                      title,
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16),
+                                    ),
+                                    subtitle: Text(
+                                      formatted,
+                                      style: TextStyle(color: Colors.grey[600]),
+                                    ),
+                                    trailing: IconButton(
+                                      icon: const Icon(Icons.delete,
+                                          color: Color(0xFF532F8F)),
+                                      onPressed: () async {
+                                        await box.delete(key);
+                                        _reloadAlarmBox(); // sinkron setelah delete
+                                      },
+                                    ),
+                                  ),
+                                );
+                              }),
+                            );
+                          }
+
+                          // TARUH SPASI BAWAH DI DALAM SCROLL (bukan di bawah Expanded)
+                          children.add(const SizedBox(height: 24));
+
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: children,
+                          );
+                        },
+                      ),
                     ),
                   );
-                }
-
-                // Fungsi untuk memformat atau memparsing timestamp
-                DateTime parseTimestamp(dynamic timestamp) {
-                  if (timestamp is DateTime) {
-                    return timestamp;
-                  } else if (timestamp is String) {
-                    try {
-                      return DateFormat('yyyy-MM-dd HH:mm:ss').parse(timestamp);
-                    } catch (e) {
-                      print('Error parsing timestamp: $e');
-                      return DateTime.now(); // Atau nilai default
-                    }
-                  } else {
-                    return DateTime.now();
-                  }
-                }
-
-                // Mengurutkan alarm berdasarkan timestamp, terbaru di atas
-                alarmEntries.sort((a, b) {
-                  DateTime timestampA = parseTimestamp(a.value['timestamp']);
-                  DateTime timestampB = parseTimestamp(b.value['timestamp']);
-                  return timestampB.compareTo(timestampA);
-                });
-
-                // Membuat daftar alarm
-                return Column(
-                  children: alarmEntries.map((entry) {
-                    final key = entry.key; // Mengambil kunci dari item
-
-                    // Melakukan casting ke Map<String, dynamic>
-                    final Map<String, dynamic> alarm =
-                        Map<String, dynamic>.from(entry.value);
-
-                    // Format timestamp ke string sederhana
-                    DateTime timestamp = parseTimestamp(alarm['timestamp']);
-                    String formattedTimestamp =
-                        DateFormat('MMMM dd, yyyy HH:mm WIB').format(timestamp);
-
-                    // Menampilkan nama alarm dan nilai sensor di judul
-                    String title = _buildAlarmTitle(alarm);
-
-                    return Card(
-                      margin: const EdgeInsets.symmetric(
-                          vertical: 4, horizontal: 16),
-                      elevation: 3,
-                      shape: RoundedRectangleBorder(
-                        borderRadius:
-                            BorderRadius.circular(35), // Rounded corners
-                      ),
-                      color: const Color.fromARGB(255, 255, 255, 255),
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.all(16),
-                        title: Text(
-                          title,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                            color: Color.fromARGB(255, 0, 0, 0),
-                          ),
-                        ),
-                        subtitle: Text(
-                          formattedTimestamp,
-                          style: TextStyle(color: Colors.grey[600]),
-                        ),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.delete,
-                              color: Color(0xFF532F8F)),
-                          onPressed: () {
-                            box.delete(key);
-                          },
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                );
-              },
+                },
+              ),
             ),
-            // ),
-          ],
-        ),
+          ),
+          // HAPUS SizedBox(height: 24) yang tadinya di bawah Expanded — penyebab overflow
+        ],
       ),
     );
   }
 
-// Fungsi untuk memparsing timestamp dari alarm
+//parsing timestamp dari alarm
   DateTime _parseTimestamp(dynamic timestamp) {
     if (timestamp is DateTime) {
-      // Jika sudah DateTime, langsung dikembalikan
       return timestamp;
     } else if (timestamp is String) {
-      // Jika String, coba parsing
       try {
         return DateTime.parse(timestamp);
       } catch (e) {
-        return DateTime
-            .now(); // Jika gagal, gunakan waktu sekarang sebagai fallback
+        return DateTime.now();
       }
     } else {
       // Fallback jika format tidak valid
@@ -849,22 +915,23 @@ class _HomePageState extends State<HomePage> {
 
 // Fungsi untuk memformat timestamp ke format yang diinginkan
   String _formatTimestamp(dynamic timestamp) {
-    DateTime date =
-        _parseTimestamp(timestamp); // Pastikan timestamp sudah di-parse
-    return DateFormat('MMMM dd, yyyy HH:mm WIB')
-        .format(date); // Format menjadi string
+    DateTime date = _parseTimestamp(timestamp);
+    return DateFormat('MMMM dd, yyyy HH:mm WIB').format(date);
   }
 
 // Fungsi untuk membuat judul alarm
   String _buildAlarmTitle(Map<String, dynamic> alarm) {
     String alarmName = alarm['alarmName'] ?? 'Unknown Alarm';
-    if (alarmName == 'boiler' ||
-        alarmName == 'chiller' ||
-        alarmName == 'ofda') {
-      return alarmName; // Hanya menampilkan nama alarm
+    if (alarmName == 'Boiler System Abnormal' ||
+        alarmName == 'Chiller System Abnormal' ||
+        alarmName == 'OFDA System Abnormal' ||
+        alarmName == 'UF System Abnormal' ||
+        alarmName == 'Fault Domestic Pump' ||
+        alarmName == 'Low Domestic Tank') {
+      return alarmName;
     } else {
       String sensorValue = alarm['sensorValue']?.toString() ?? 'N/A';
-      return '$alarmName - $sensorValue°'; // Menampilkan nama alarm dan nilai sensor
+      return '$alarmName - $sensorValue°';
     }
   }
 
@@ -898,21 +965,22 @@ class _HomePageState extends State<HomePage> {
                             ArtesisTimerCard(number: 2, label: 'Artesis 2'),
                             SizedBox(height: 12),
                             ArtesisTimerCard(number: 4, label: 'Artesis 4'),
+                            SizedBox(height: 12),
                           ],
                         ),
                       ),
+                      const M800Page(key: PageStorageKey('M800')),
                       VentFilterPage(
                         key: const PageStorageKey('VentFilter'),
                         tk201: tk201,
                         tk202: tk202,
                         tk103: tk103,
-                        chartWidget: _buildChartVentFilter(),
                       ),
                       lbeng04Page(
                         key: const PageStorageKey('LBENG-AHU-004'),
                         tempAhu04lb: temp_ahu04lb,
                         rhAhu04lb: rh_ahu04lb,
-                        chartWidget: _buildChart_ahu04lb(),
+                        // chartWidget: _buildChart_ahu04lb(),
                         tf3Service: _tf3Service,
                       ),
                     ],
@@ -926,7 +994,7 @@ class _HomePageState extends State<HomePage> {
                   child: Center(
                     child: SmoothPageIndicator(
                       controller: _pageController,
-                      count: 4,
+                      count: 5,
                       effect: WormEffect(
                         dotHeight: 8.0,
                         dotWidth: 8.0,
@@ -1236,7 +1304,7 @@ class _HomePageState extends State<HomePage> {
                       LineChartBarData(
                         spots: _tk201Data,
                         isCurved: false,
-                        curveSmoothness: 0.2,
+                        curveSmoothness: 0.3,
                         color: const Color(0xFFed4d9b),
                         dotData: FlDotData(show: false),
                         belowBarData: BarAreaData(show: false),
@@ -1244,7 +1312,7 @@ class _HomePageState extends State<HomePage> {
                       LineChartBarData(
                         spots: _tk202Data,
                         isCurved: false,
-                        curveSmoothness: 0.2,
+                        curveSmoothness: 0.3,
                         color: const Color.fromARGB(255, 77, 237, 184),
                         dotData: FlDotData(show: false),
                         belowBarData: BarAreaData(show: false),
@@ -1252,7 +1320,7 @@ class _HomePageState extends State<HomePage> {
                       LineChartBarData(
                         spots: _tk103Data,
                         isCurved: false,
-                        curveSmoothness: 0.2,
+                        curveSmoothness: 0.1,
                         color: const Color(0xFFC6849B),
                         dotData: FlDotData(show: false),
                         belowBarData: BarAreaData(show: false),

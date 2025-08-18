@@ -28,7 +28,7 @@ class BackgroundWaveClipper extends CustomClipper<Path> {
   Path getClip(Size size) {
     var path = Path();
 
-    const minSize = 140.0;
+    const minSize = 130.0;
 
     // when h = max = 280
     // h = 280, p1 = 210, p1Diff = 70

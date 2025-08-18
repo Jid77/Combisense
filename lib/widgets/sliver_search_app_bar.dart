@@ -15,7 +15,7 @@ class SliverSearchAppBar extends SliverPersistentHeaderDelegate {
     return Stack(
       children: [
         const BackgroundWave(
-          height: 280,
+          height: 220,
         ),
         // Positioned(
         //   top: topPadding + offset,
@@ -31,7 +31,7 @@ class SliverSearchAppBar extends SliverPersistentHeaderDelegate {
   double get maxExtent => 280;
 
   @override
-  double get minExtent => 140;
+  double get minExtent => 100;
 
   @override
   bool shouldRebuild(covariant SliverPersistentHeaderDelegate oldDelegate) =>
