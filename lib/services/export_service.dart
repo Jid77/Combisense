@@ -3,127 +3,184 @@ import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import 'package:intl/intl.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:path/path.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:excel/excel.dart';
 import 'package:file_picker/file_picker.dart';
 
 class ExportService {
-  // Fungsi untuk meminta izin penyimpanan menggunakan SAF
   Future<void> requestStoragePermission(BuildContext context) async {
-    if (await Permission.manageExternalStorage.isGranted) {
-      // Izin sudah diberikan
-      return;
-    } else {
-      // Tampilkan prompt untuk meminta izin MANAGE_EXTERNAL_STORAGE
-      await Permission.manageExternalStorage.request();
-    }
+    if (await Permission.manageExternalStorage.isGranted) return;
+    await Permission.manageExternalStorage.request();
   }
 
-  // Fungsi untuk membuka SAF dan memilih folder
-  Future<void> openSAFPicker(BuildContext context) async {
+  Future<String?> openSAFPicker(BuildContext context) async {
     try {
-      var status = await Permission.manageExternalStorage.status;
-      if (status.isGranted) {
-        // Anda dapat langsung menggunakan intent untuk membuka pengelola file
-        var result = await FilePicker.platform.getDirectoryPath();
-        if (result != null) {
-          // Lanjutkan dengan path yang dipilih pengguna
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Folder dipilih: $result')),
-          );
-        } else {
-          // Pengguna membatalkan pemilihan folder
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Pemilihan folder dibatalkan.')),
-          );
-        }
+      final status = await Permission.manageExternalStorage.status;
+      if (!status.isGranted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Izin ditolak, tidak dapat akses folder')),
+        );
+        return null;
+      }
+      final result = await FilePicker.platform.getDirectoryPath();
+      if (result != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Folder dipilih: $result')),
+        );
+        return result;
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text('Izin ditolak, tidak dapat mengakses folder.')),
+          const SnackBar(content: Text('Pemilihan folder dibatalkan.')),
         );
+        return null;
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Terjadi kesalahan: $e')),
       );
+      return null;
     }
   }
 
-  // Fungsi untuk export data ke Excel
-  Future<void> exportDataToExcel(BuildContext context,
-      {required DateTime startDate, required DateTime endDate}) async {
+  Future<void> exportDataToExcel(
+    BuildContext context, {
+    required DateTime startDate,
+    required DateTime endDate,
+    String? targetDirectory,
+  }) async {
     await requestStoragePermission(context);
 
-    final sensorDataBox = await Hive.box('sensorDataBox');
-    final sensorDataList =
-        sensorDataBox.get('sensorDataList', defaultValue: []);
+    final sensorDataBox = Hive.isBoxOpen('sensorDataBox')
+        ? Hive.box('sensorDataBox')
+        : await Hive.openBox('sensorDataBox');
+    final alarmHistoryBox = Hive.isBoxOpen('alarmHistoryBox')
+        ? Hive.box('alarmHistoryBox')
+        : await Hive.openBox('alarmHistoryBox');
 
-    var excel = Excel.createExcel();
-    Sheet sensorSheet = excel['Sensor Data'];
-    Sheet alarmSheet = excel['Alarm History'];
+    final List<dynamic> sensorDataList = (sensorDataBox
+        .get('sensorDataList', defaultValue: <dynamic>[])) as List<dynamic>;
 
-    List<String> sensorHeaders = [
+    final excel = Excel.createExcel();
+    if (excel.getDefaultSheet() != null) {
+      excel.delete(excel.getDefaultSheet()!);
+    }
+
+    // Vent Filter (tanpa status)
+    final vent = excel['Vent Filter'];
+    vent.appendRow(<String>['Timestamp', 'Tk201', 'Tk202', 'Tk103']);
+
+    // LBENG04
+    final lb = excel['LBENG04'];
+    lb.appendRow(<String>['Timestamp', 'Temp_AHU_04LB', 'RH_AHU_04LB']);
+
+    // M800
+    final m800 = excel['M800'];
+    m800.appendRow(<String>[
       'Timestamp',
-      'Tk201',
-      'Tk202',
-      'Tk103',
-      'PWG',
-      'P_OFDA'
-    ];
-    sensorSheet.appendRow(sensorHeaders);
+      'TOC (ppb)',
+      'Temp (°C)',
+      'Conduct (uS/cm)',
+      'Lamp Hours'
+    ]);
 
-    List<String> alarmHeaders = ['Timestamp', 'Alarm Name', 'Sensor Value'];
-    alarmSheet.appendRow(alarmHeaders);
+    // Alarm
+    final alarmSheet = excel['Alarm History'];
+    alarmSheet.appendRow(<String>['Timestamp', 'Alarm Name', 'Sensor Value']);
 
-    // Mengisi data sensor
-    for (var data in sensorDataList) {
-      String timestampString = data['timestamp'];
-      DateTime? timestamp;
-
+    DateTime? _parseTs(dynamic raw) {
+      if (raw == null) return null;
+      if (raw is DateTime) return raw;
+      final s = raw.toString();
       try {
-        timestamp = DateFormat('dd/MM/yy HH:mm').parse(timestampString);
-      } catch (e) {
-        continue; // Skip if parsing fails
-      }
-
-      if (timestamp.isAfter(startDate) &&
-          timestamp.isBefore(endDate.add(Duration(days: 1)))) {
-        List<dynamic> row = [
-          DateFormat('dd/MM/yyyy HH:mm').format(timestamp),
-          data['tk201'],
-          data['tk202'],
-          data['tk103'],
-          data['pwg'],
-          data['p_ofda'],
-        ];
-        sensorSheet.appendRow(row);
+        return DateFormat('dd/MM/yy HH:mm').parse(s);
+      } catch (_) {
+        for (final f in ['dd/MM/yyyy HH:mm', 'yyyy-MM-dd HH:mm:ss']) {
+          try {
+            return DateFormat(f).parse(s);
+          } catch (_) {}
+        }
+        return null;
       }
     }
 
-    // Mengisi data alarm history
-    final alarmHistoryBox = await Hive.box('alarmHistoryBox');
-    List<dynamic> alarmHistoryList =
-        alarmHistoryBox.values.toList(); // Mengambil semua nilai di box
-
-    for (var alarm in alarmHistoryList) {
-      String alarmTimestampString =
-          DateFormat('dd/MM/yyyy HH:mm').format(alarm['timestamp']);
-      String alarmName = alarm['alarmName'];
-      dynamic sensorValue = alarm['sensorValue'];
-
-      alarmSheet.appendRow([alarmTimestampString, alarmName, sensorValue]);
+    bool _inRange(DateTime ts) {
+      final start = DateTime(startDate.year, startDate.month, startDate.day);
+      final end =
+          DateTime(endDate.year, endDate.month, endDate.day, 23, 59, 59, 999);
+      return !ts.isBefore(start) && !ts.isAfter(end);
     }
 
-    // Simpan file Excel
+    // ==== isi Vent/LB/M800 dari sensorDataList ====
+    for (final item in sensorDataList) {
+      if (item is! Map) continue;
+      final map = Map<String, dynamic>.from(item as Map);
+
+      final ts = _parseTs(map['timestamp']);
+      if (ts == null || !_inRange(ts)) continue;
+
+      vent.appendRow([
+        DateFormat('dd/MM/yyyy HH:mm').format(ts),
+        (map['tk201'] as num?)?.toDouble(),
+        (map['tk202'] as num?)?.toDouble(),
+        (map['tk103'] as num?)?.toDouble(),
+      ]);
+
+      lb.appendRow([
+        DateFormat('dd/MM/yyyy HH:mm').format(ts),
+        (map['temp_ahu04lb'] as num?)?.toDouble(),
+        (map['rh_ahu04lb'] as num?)?.toDouble(),
+      ]);
+
+      final hasM800 = map.containsKey('m800_toc') ||
+          map.containsKey('m800_temp') ||
+          map.containsKey('m800_conduct') ||
+          map.containsKey('m800_lamp');
+
+      if (hasM800) {
+        m800.appendRow([
+          DateFormat('dd/MM/yyyy HH:mm').format(ts),
+          (map['m800_toc'] as num?)?.toDouble(),
+          (map['m800_temp'] as num?)?.toDouble(),
+          (map['m800_conduct'] as num?)?.toDouble(),
+          (map['m800_lamp'] as num?)?.toInt(),
+        ]);
+      }
+    }
+
+    // ==== isi Alarm History ====
+    for (final alarm in alarmHistoryBox.values) {
+      if (alarm is! Map) continue;
+      final a = Map<String, dynamic>.from(alarm as Map);
+      final ts = _parseTs(a['timestamp']) ??
+          (a['timestamp'] is DateTime ? a['timestamp'] as DateTime : null);
+      if (ts == null || !_inRange(ts)) continue;
+
+      alarmSheet.appendRow([
+        DateFormat('dd/MM/yyyy HH:mm').format(ts),
+        a['alarmName']?.toString() ?? '-',
+        a['sensorValue'],
+      ]);
+    }
+
+    // ==== simpan file ====
     try {
-      final directory = Directory('/storage/emulated/0/Download/combiphar');
-      final filePath = '${directory.path}/exported_data.xlsx';
+      final nowStr = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
+      final fileName = 'export_$nowStr.xlsx';
+
+      final dirPath =
+          targetDirectory ?? '/storage/emulated/0/Download/combiphar';
+      final directory = Directory(dirPath);
+      if (!directory.existsSync()) {
+        directory.createSync(recursive: true);
+      }
+
+      final filePath = '${directory.path}/$fileName';
+      final bytes = excel.encode();
+      if (bytes == null) throw 'Excel encode() mengembalikan null';
 
       File(filePath)
         ..createSync(recursive: true)
-        ..writeAsBytesSync(excel.encode()!);
+        ..writeAsBytesSync(bytes);
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Data berhasil diekspor ke $filePath')),

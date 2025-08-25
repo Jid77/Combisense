@@ -105,7 +105,7 @@ class _lbeng04PageState extends State<lbeng04Page> {
                         if (val != null && val > 0) {
                           service.setPreset(val);
                           Navigator.pop(context);
-                          AuthHelper.showTopNotification(
+                          AuthHelper.showTopNotificationSuccess(
                               context, "Preset AHU04LB diatur: $val°C");
                         }
                       },
@@ -218,7 +218,7 @@ class _lbeng04PageState extends State<lbeng04Page> {
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       _CircularValue(
-                                        label: "Temperature",
+                                        label: "Temp",
                                         valueText:
                                             '${widget.tempAhu04lb.toStringAsFixed(1)}°C',
                                         color: const Color(0xFF00B8D4),
@@ -329,7 +329,7 @@ class _CircularValue extends StatelessWidget {
           label,
           style: const TextStyle(
             color: Colors.black87,
-            fontSize: 14,
+            fontSize: 12,
             fontWeight: FontWeight.w600,
           ),
         ),

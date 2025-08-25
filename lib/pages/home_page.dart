@@ -56,6 +56,9 @@ class _HomePageState extends State<HomePage> {
   bool _isLoading = true;
   int _selectedIndex = 0;
 
+// Alarm Title
+  final _num1 = NumberFormat("0.0");
+  final _num2 = NumberFormat("0.00");
   // data
   // int boiler = 0;
   // int chiller = 0;
@@ -80,6 +83,7 @@ class _HomePageState extends State<HomePage> {
   bool isTask8On = false; // UF
   bool isTask9On = false; // Fault Pump
   bool isTask10On = false; // Surface Tank (high & low)
+  bool isTask11On = false; //m800
   //  excel - timestamp
   DateTimeRange? selectedDateRange;
 
@@ -311,6 +315,7 @@ class _HomePageState extends State<HomePage> {
       isTask8On = prefs.getBool("task8") ?? false;
       isTask9On = prefs.getBool("task9") ?? false;
       isTask10On = prefs.getBool("task10") ?? false;
+      isTask11On = prefs.getBool("task11") ?? false;
     });
   }
 
@@ -326,6 +331,7 @@ class _HomePageState extends State<HomePage> {
       "task8": isTask8On,
       "task9": isTask9On,
       "task10": isTask10On,
+      "task11": isTask11On,
     });
   }
 
@@ -576,18 +582,27 @@ class _HomePageState extends State<HomePage> {
                 ],
               ),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    "Alarm Notification Settings",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 4),
-                  Center(
-                    child: Container(
-                      width: screenWidth * 0.4,
-                      height: 2,
-                      color: Colors.black,
+                  // ===== Header + underline (sepanjang teks) =====
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: IntrinsicWidth(
+                      child: DecoratedBox(
+                        decoration: const BoxDecoration(
+                          border: Border(
+                            bottom: BorderSide(color: Colors.black, width: 2),
+                          ),
+                        ),
+                        child: const Padding(
+                          padding: EdgeInsets.only(bottom: 4),
+                          child: Text(
+                            "Alarm Notification",
+                            style: TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -629,6 +644,16 @@ class _HomePageState extends State<HomePage> {
                               _saveSwitchState("task3", v);
                             },
                           ),
+                          _buildAlarmSwitch(
+                              title: 'M800',
+                              value: isTask11On,
+                              onChanged: (v) {
+                                setState(() {
+                                  isTask11On = v;
+                                  updateServiceData();
+                                });
+                                _saveSwitchState("task11", v);
+                              }),
                           _buildAlarmSwitch(
                             title: 'Vent Tk 201',
                             value: isTask4On,
@@ -919,20 +944,95 @@ class _HomePageState extends State<HomePage> {
     return DateFormat('MMMM dd, yyyy HH:mm WIB').format(date);
   }
 
-// Fungsi untuk membuat judul alarm
   String _buildAlarmTitle(Map<String, dynamic> alarm) {
-    String alarmName = alarm['alarmName'] ?? 'Unknown Alarm';
-    if (alarmName == 'Boiler System Abnormal' ||
-        alarmName == 'Chiller System Abnormal' ||
-        alarmName == 'OFDA System Abnormal' ||
-        alarmName == 'UF System Abnormal' ||
-        alarmName == 'Fault Domestic Pump' ||
-        alarmName == 'Low Domestic Tank') {
-      return alarmName;
-    } else {
-      String sensorValue = alarm['sensorValue']?.toString() ?? 'N/A';
-      return '$alarmName - $sensorValue°';
+    final String name = alarm['alarmName']?.toString() ?? 'Unknown Alarm';
+    final dynamic value = alarm['sensorValue'];
+
+    // Alarm yang emang nggak butuh nilai tampil
+    const noValueNames = {
+      'Boiler System Abnormal',
+      'Chiller System Abnormal',
+      'OFDA System Abnormal',
+      'UF System Abnormal',
+      'Fault Domestic Pump',
+      'Low Domestic Tank',
+    };
+    if (noValueNames.contains(name) || value == null) return name;
+
+    // Khusus yang value berupa MAP (biar nggak muncul {…})
+    if (value is Map) {
+      return _formatMapValue(name, Map<String, dynamic>.from(value));
     }
+
+    // Angka tunggal (tk201, tk202, tk103, dll)
+    if (value is num) {
+      final unit = _unitForSingleValue(name);
+      return '$name — ${_fmtNum(value, name)}${unit ?? ''}';
+    }
+
+    // fallback ke string biasa
+    return '$name — $value';
+  }
+
+  String? _unitForSingleValue(String alarmName) {
+    // Mapping unit buat angka tunggal
+    // TK* kita asumsikan suhu (°C). Kalau beda, tinggal ganti sini.
+    const tempAlarms = {'tk201', 'tk202', 'tk103'};
+    final key = alarmName.toLowerCase();
+    if (tempAlarms.any((t) => key.contains(t))) return '°C';
+    return null; // default tanpa unit
+  }
+
+  String _fmtNum(num v, String alarmName) {
+    // Pilih 1 atau 2 desimal sesuai kebutuhan
+    final key = alarmName.toLowerCase();
+    if (key.contains('conduct')) return _num2.format(v);
+    return _num1.format(v);
+  }
+
+  String _formatMapValue(String alarmName, Map<String, dynamic> m) {
+    final key = alarmName.toLowerCase();
+
+    // Ahu 04 LB: {'tempAhu': x, 'rhAhu': y}
+    if (key.contains('ahu')) {
+      final temp = m['tempAhu'];
+      final rh = m['rhAhu'];
+      final parts = <String>[];
+      if (temp is num) parts.add('Temp ${_num1.format(temp)}°C');
+      if (rh is num) parts.add('RH ${_num1.format(rh)}%');
+      return parts.isEmpty ? alarmName : '$alarmName — ${parts.join(', ')}';
+    }
+
+    if (key.contains('m800')) {
+      final toc = m['toc'];
+      final temp = m['temp'];
+      final conduct = m['conduct'];
+      final lamp = m['lamp'];
+
+      final parts = <String>[];
+      if (toc is num) parts.add('TOC ${_num1.format(toc)}');
+      if (temp is num) parts.add('Temp ${_num1.format(temp)}°C');
+      if (conduct is num) parts.add('Conduct ${_num2.format(conduct)}');
+      if (lamp is num) parts.add('Lamp ${lamp.toInt()} h');
+
+      return parts.isEmpty ? alarmName : '$alarmName — ${parts.join(', ')}';
+    }
+
+    final parts = m.entries.map((e) {
+      final k = e.key.toString();
+      final v = e.value;
+      if (v is num) {
+        // heuristik kecil: temp/rh/cond → kasih unit
+        if (k.toLowerCase().contains('temp')) return '$k ${_num1.format(v)}°C';
+        if (k.toLowerCase().contains('rh')) return '$k ${_num1.format(v)}%';
+        if (k.toLowerCase().contains('conduct')) return '$k ${_num2.format(v)}';
+        if (k.contains('lamp')) return '${e.key} ${v.toInt()} h';
+        return '$k ${_num1.format(v)}';
+      }
+      return '$k $v';
+    }).toList();
+
+    return parts.isEmpty ? alarmName : '$alarmName — ${parts.join(', ')}';
   }
 
   Widget _buildHomeContent() {
@@ -961,9 +1061,13 @@ class _HomePageState extends State<HomePage> {
                             horizontal: 12.0, vertical: 8.0),
                         child: Column(
                           children: const [
+                            // SizedBox(height: 12),
+                            // ArtesisTimerCard(number: 1, label: 'Artesis 1'),
                             SizedBox(height: 12),
                             ArtesisTimerCard(number: 2, label: 'Artesis 2'),
                             SizedBox(height: 12),
+                            // ArtesisTimerCard(number: 3, label: 'Artesis 3'),
+                            // SizedBox(height: 12),
                             ArtesisTimerCard(number: 4, label: 'Artesis 4'),
                             SizedBox(height: 12),
                           ],
@@ -986,11 +1090,8 @@ class _HomePageState extends State<HomePage> {
                     ],
                   ),
                 ),
-                Positioned(
-                  bottom: 8,
-                  left: 0,
-                  right: 0,
-                  top: 0,
+                Padding(
+                  padding: const EdgeInsets.only(top: 0, bottom: 8),
                   child: Center(
                     child: SmoothPageIndicator(
                       controller: _pageController,
@@ -998,7 +1099,7 @@ class _HomePageState extends State<HomePage> {
                       effect: WormEffect(
                         dotHeight: 8.0,
                         dotWidth: 8.0,
-                        activeDotColor: const Color(0xFF532F8F),
+                        activeDotColor: Color(0xFF532F8F),
                         dotColor: Colors.grey.withOpacity(0.5),
                       ),
                     ),

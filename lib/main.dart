@@ -34,6 +34,16 @@ int _tick5m = 0; // 0,1,2,3,... untuk nentuin kapan 10 menit
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  ErrorWidget.builder = (details) {
+    return Material(
+      child: Center(
+        child: Text(
+          'Terjadi error.\n${details.exceptionAsString()}',
+          textAlign: TextAlign.center,
+        ),
+      ),
+    );
+  };
   await Firebase.initializeApp();
 
   await Hive.initFlutter();
@@ -179,6 +189,7 @@ void onStart(ServiceInstance service) async {
     if (event["task8"] != null) await prefs.setBool("task8", event["task8"]);
     if (event["task9"] != null) await prefs.setBool("task9", event["task9"]);
     if (event["task10"] != null) await prefs.setBool("task10", event["task10"]);
+    if (event["task11"] != null) await prefs.setBool("task11", event["task11"]);
   });
 }
 

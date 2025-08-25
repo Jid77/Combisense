@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Combisense — Quick User Guide (Utility Engineering)</title>
+<style>
+  :root {
+    --purple:#8547B0;
+    --green:#6FCF97;
+    --pink:#ED4D9B;
+    --teal:#25D8A8;
+    --slate:#374151;
+    --muted:#6b7280;
+    --border:#d1d5db;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    color: var(--slate);
+    margin: 0;
+    background: #fafafa;
+  }
+  .page {
+    width: 980px;
+    margin: 20px auto;
+    background: #fff;
+    padding: 26px 28px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.06);
+  }
+  h1 {
+    margin: 0 0 6px 0;
+    font-size: 28px;
+    color: var(--slate);
+  }
+  .subtitle {
+    color: var(--muted);
+    margin-bottom: 14px;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px 22px;
+  }
+  .section > h2 {
+    font-size: 14px;
+    color: #fff;
+    background: var(--purple);
+    padding: 8px 12px;
+    border-radius: 10px;
+    margin: 0 0 8px 0;
+  }
+  .section.teal > h2 { background: var(--purple); }
+  .section.green > h2 { background: var(--purple); }
+  .section.pink > h2 { background: var(--purple); }
+  ul { margin: 8px 0 0 18px; padding: 0; }
+  li { margin: 4px 0; line-height: 1.35; }
+  .muted { color: var(--muted); }
+  .foot {
+    margin-top: 12px;
+    background: var(--pink);
+    color: #fff;
+    border-radius: 10px;
+    padding: 8px 12px;
+    font-weight: 600;
+  }
+  .shots {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 10px;
+    margin-top: 12px;
+  }
+  .shot {
+    border: 2px dashed var(--border);
+    border-radius: 8px;
+    height: 90px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    text-align: center;
+    font-size: 12px;
+    padding: 6px;
+  }
+  /* print */
+  @media print {
+    body { background: #fff; }
+    .page {
+      width: auto;
+      margin: 0;
+      border: none;
+      box-shadow: none;
+      border-radius: 0;
+      padding: 12mm;
+    }
+    a[href]:after { content: ""; }
+  }
+</style>
+</head>
+<body>
+  <div class="page">
+    <h1>Combisense — Quick User Guide ( Utility Engineering)</h1>
+    <div class="subtitle">Monitoring & kontrol utility • Real-time status • Alarm • Grafik • Ekspor Excel</div>
+
+    <div class="grid">
+
+      <div class="section">
+        <h2>Quick Start</h2>
+        <ul>
+          <li>Install APK, buka & izinkan <b>Notifikasi</b> + <b>Penyimpanan</b>.</li>
+          <li>Pastikan HP terhubung internet.</li>
+          <li>Pertama kali, data grafik terisi bertahap (interval penarikan data ±10 menit).</li>
+         <span class="muted"><i>Selain data untuk grafik</i>, Data akan ditarik secara real-time</span> 
+          <li>Setelah dibuka sekali, app berjalan di background.<br><span class="muted">Jika HP restart/mati, buka app lagi agar penarikan data aktif.</span></li>
+        </ul>
+      </div>
+
+      <div class="section teal">
+        <h2>Navigasi Halaman</h2>
+        <ul>
+          <li><b>Indikator</b>: ringkasan status Normal/Abnormal.</li>
+          <li><b>Artesis</b>: PV/SV, set preset, reset, ON manual by timer.</li>
+          <li><b>M800</b>: jam UV Lamp + TOC/Temp/Conduct.</li>
+          <li><b>Vent Filter</b>: PV/SV Tk201/Tk202/Tk103 + grafik.</li>
+          <li><b>LBENG AHU 04</b>: PV/SV TF3, Temp, RH + grafik.</li>
+        </ul>
+      </div>
+
+      <div class="section green">
+        <h2>Artesis (tips)</h2>
+        <ul>
+          <li><b>Setting SV</b>: Tombol “Setting” → verifikasi PIN.</li>
+          <li><b>Reset timer</b>: Tombol "Reset" → verifikasi PIN</li>
+          <li><b>ON Pompa manual by timer</b>: Toggle "on/off" → verifikasi PIN pompa akan on sesuai pilihan timer lalu otomatis OFF mencegah human error</li>
+        </ul>
+      </div>
+
+      <div class="section pink">
+        <h2>Vent Filter (tips)</h2>
+        <ul>
+          <li><b>Setting SV</b>: Tombol “Setting” → verifikasi PIN.</li>
+          <li>Range ideal: <b>65–80 °C</b> (area hijau di grafik).</li>
+          <li>Tooltip: sentuh & geser grafik untuk melihat nilai & jam.</li>
+          <li>Dropdown <b>“X pts”</b> mengubah jendela data; legend bisa di-<i>toggle</i>.</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <h2>M800 (tips)</h2>
+        <ul>
+          <li><b>UV Lamp</b>: bar warna Hijau → Kuning → Merah saat mendekati batas (mis. 4500 jam).</li>
+          <li><b>TOC/Temp/Conduct</b>: grafik mini; sumbu otomatis; label jam.</li>
+        </ul>
+      </div>
+
+      <div class="section teal">
+        <h2>LBENG AHU 04 (tips)</h2>
+        <ul>
+          <li><b>Setting SV</b>: Tombol “Setting” → verifikasi PIN.</li>
+          <li>Rentang umum: <b>Temp 18–27 °C</b>, <b>RH 40–80%</b>.</li>
+          <li>Tooltip & jendela data sama seperti Vent Filter.</li>
+        </ul>
+      </div>
+
+      <div class="section green">
+        <h2>Alarm & Notifikasi</h2>
+        <ul>
+          <li>Boiler, OFDA, Chiller, Vent Filter, AHU 04, dll (sesuai pengaturan).</li>
+          <li>Saat terjadi alarm: notifikasi lokal <b>“Sensor Alarm”</b> berbunyi.</li>
+          <li>Histori alarm dapat dilihat di halaman histori</li>
+          <li>ON/OFF alarm dapat diatur di menu <b>Settings</b>.</li>
+        </ul>
+      </div>
+
+      <div class="section pink">
+        <h2>Ekspor ke Excel</h2>
+        <ul>
+          <li>Pilih <b>tanggal mulai–akhir</b>, izinkan penyimpanan.</li>
+          <li>File tersimpan di <code>Download/combiphar/exported_data.xlsx</code></li>
+          <li>Sheet tersedia: <b>Sensor Data</b> & <b>Alarm History</b>.</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <h2>Troubleshooting</h2>
+        <ul>
+          <li><b>Blank/Hitam</b>: cek internet, paksa tutup (force close) & buka lagi.</li>
+          <li><b>Grafik tidak bergerak</b>: lakukan <i>pull-to-refresh</i>; pastikan data sensor berjalan.</li>
+          <li><b>Notifikasi tidak muncul</b>: izinkan notifikasi & pastikan mode Jangan Ganggu mati.</li>
+          <li><b>HP restart</b>: buka app lagi agar penarikan data aktif.</li>
+        </ul>
+      </div>
+
+      <div class="section teal">
+        <h2>Catatan Teknis</h2>
+        <ul>
+          <li>Data dibaca dari <b>Firebase Realtime Database</b> (<code>sensor_data</code> / <code>commands</code>).</li>
+          <li>Grafik mengoleksi data berkala (±10 menit) dan menyimpan cache lokal di smartphone masing-masing.</li>
+          <li>Saat mengatur SV atau reset memerlukan waktu beberapa detik sampai value atau tampilan di aplikasi berubah (dikarenakan menunggu write ke perangkat asli selesai)</li>
+        </ul>
+      </div>
+
+    </div>
+
+    <div class="foot">PIN admin (default): <code>combi1234</code></div>
+
+    <!-- <div class="shots">
+      <div class="shot">SS: Indikator</div>
+      <div class="shot">SS: Artesis</div>
+      <div class="shot">SS: Vent Filter</div>
+      <div class="shot">SS: M800</div>
+      <div class="shot">SS: AHU 04</div>
+      <div class="shot">SS: Settings Alarm</div>
+      <div class="shot">SS: Export</div>
+    </div> -->
+
+    <div class="muted" style="margin-top:10px;font-size:11px;">
+      Utitech — 19 Aug 2025 02:38
+    </div>
+  </div>
+</body>
+</html>

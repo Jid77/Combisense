@@ -89,8 +89,8 @@ class _M800PageState extends State<M800Page> {
                 // Header minimalis + Lamp badge kecil
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
+                  children: const [
+                    Text(
                       'M800',
                       style: TextStyle(
                         fontSize: 22,
@@ -98,7 +98,6 @@ class _M800PageState extends State<M800Page> {
                         color: Colors.black,
                       ),
                     ),
-                    // _LampBadge(ds: _ds),
                   ],
                 ),
                 const Divider(
@@ -108,7 +107,7 @@ class _M800PageState extends State<M800Page> {
                     endIndent: 150),
                 const SizedBox(height: 10),
 
-                // === Lamp paling atas (sesuai request) ===
+                // === Lamp paling atas ===
                 AnimatedSwitcher(
                   duration: const Duration(milliseconds: 180),
                   child: _reloadingBox
@@ -157,7 +156,7 @@ class _M800PageState extends State<M800Page> {
                       ? _metricSkeleton()
                       : _MetricCard(
                           title: 'Conduct',
-                          unit: 'mS/cm',
+                          unit: 'uS/cm',
                           boxName: 'm800_conduct_history',
                           latest: _ds.m800Conduct,
                           lineColor: kConductColor,
@@ -229,6 +228,22 @@ class _MetricCard extends StatelessWidget {
             fontSize: 12, fontWeight: FontWeight.w500, color: Colors.grey),
       );
 
+  Set<int> _allowedIndices(int n, {int maxCount = 5}) {
+    final res = <int>{};
+    if (n <= 0) return res;
+    final count = n < maxCount ? n : maxCount;
+    if (count == 1) {
+      res.add(0);
+    } else {
+      final step = (n - 1) / (count - 1);
+      for (int k = 0; k < count; k++) {
+        final idx = (k * step).round().clamp(0, n - 1);
+        res.add(idx);
+      }
+    }
+    return res;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -281,35 +296,40 @@ class _MetricCard extends StatelessWidget {
                   }
                 }
 
-                // spots & labels HH:mm
+                // kalau kosong
+                if (items.isEmpty) {
+                  return const Center(
+                    child: Text('No data'),
+                  );
+                }
+
+                // Spots pakai INDEX 0..n-1 (seperti Vent Filter),
+                // label jam tetap dari timestamp
                 final spots = <FlSpot>[];
                 final labels = <String>[];
+                int idx = 0;
+
+                // cek rentang waktu untuk format label adaptif
+                final ts = items.map((m) => (m['t'] as int)).toList();
+                final minTs = ts.reduce(math.min);
+                final maxTs = ts.reduce(math.max);
+                final spanMs = (maxTs - minTs).abs();
+                final timeFmt = (spanMs < 5 * 60 * 1000)
+                    ? DateFormat('HH:mm:ss')
+                    : DateFormat('HH:mm');
+
                 for (var m in items) {
                   final t = (m['t'] as int);
                   final v = (m['v'] as num).toDouble();
-                  spots.add(FlSpot(t.toDouble(), v));
-                  labels.add(DateFormat('HH:mm')
-                      .format(DateTime.fromMillisecondsSinceEpoch(t)));
+                  spots.add(FlSpot(idx.toDouble(), v));
+                  labels.add(
+                      timeFmt.format(DateTime.fromMillisecondsSinceEpoch(t)));
+                  idx++;
                 }
 
-                // EXACTLY 4 label waktu (atau kurang jika data < 4)
-                final allowed = <int>{};
+                // allowed label kiri—kanan & tengah (maks 5)
                 final n = labels.length;
-                if (n > 0) {
-                  final want = n < 4 ? n : 4;
-                  if (want == 1) {
-                    allowed.add(0);
-                  } else if (want == 2) {
-                    allowed.addAll({0, n - 1});
-                  } else if (want == 3) {
-                    allowed.addAll({0, ((n - 1) / 2).round(), n - 1});
-                  } else {
-                    // 4 titik: 0, ~1/3, ~2/3, last
-                    final a = ((n - 1) / 3).round();
-                    final b = (((n - 1) * 2) / 3).round();
-                    allowed.addAll({0, a, b, n - 1});
-                  }
-                }
+                final allowed = _allowedIndices(n, maxCount: 5);
 
                 // auto-scale Y dan tampilkan sumbu Y
                 double? minY, maxY;
@@ -323,6 +343,7 @@ class _MetricCard extends StatelessWidget {
                     maxY = maxY! + 1;
                   }
                 }
+
                 // tentukan interval Y yang rapih (3 ticks)
                 double? intervalY;
                 if (minY != null && maxY != null) {
@@ -330,7 +351,6 @@ class _MetricCard extends StatelessWidget {
                   if (span <= 0) {
                     intervalY = 1.0;
                   } else {
-                    final rough = span / 3.0;
                     double _roundNice(double x) {
                       const bases = <double>[
                         0.1,
@@ -347,29 +367,37 @@ class _MetricCard extends StatelessWidget {
                       return 10.0;
                     }
 
-                    intervalY = _roundNice(rough);
+                    intervalY = _roundNice(span / 3.0);
                   }
                 }
 
-                final double minX = spots.isEmpty ? 0.0 : spots.first.x;
-                final double maxX = spots.isEmpty ? 1.0 : spots.last.x;
+                final double minX = 0.0;
+                final double maxX =
+                    (n - 1).clamp(0, double.infinity).toDouble();
 
                 return LineChart(
                   LineChartData(
                     minX: minX,
-                    maxX: maxX,
+                    maxX: maxX.isNaN ? 0 : maxX,
                     minY: minY,
                     maxY: maxY,
 
-                    // tetap minimalis: no grid
-                    gridData: FlGridData(show: true),
+                    // grid rapih
+                    gridData: FlGridData(
+                      show: true,
+                      drawVerticalLine: true,
+                      getDrawingVerticalLine: (_) => FlLine(
+                          color: Colors.grey.withOpacity(0.10), strokeWidth: 1),
+                      getDrawingHorizontalLine: (_) => FlLine(
+                          color: Colors.grey.withOpacity(0.15), strokeWidth: 1),
+                    ),
 
-                    // 👉 aktifin sumbu (axis) kiri & bawah aja
+                    // Axis
                     titlesData: FlTitlesData(
-                      topTitles:
-                          AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                      rightTitles:
-                          AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                      topTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false)),
+                      rightTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false)),
                       leftTitles: AxisTitles(
                         sideTitles: SideTitles(
                           showTitles: true,
@@ -391,37 +419,32 @@ class _MetricCard extends StatelessWidget {
                       bottomTitles: AxisTitles(
                         sideTitles: SideTitles(
                           showTitles: true,
-                          reservedSize: 24,
+                          reservedSize: 30,
+                          interval: 1, // penting: biar v = indeks integer
                           getTitlesWidget: (value, meta) {
-                            if (spots.isEmpty) return const SizedBox.shrink();
-                            int idx = -1;
-                            double best = double.infinity;
-                            for (int i = 0; i < spots.length; i++) {
-                              final d = (spots[i].x - value).abs();
-                              if (d < best) {
-                                best = d;
-                                idx = i;
-                              }
+                            final i = value.round();
+                            if (i < 0 || i >= labels.length) {
+                              return const SizedBox.shrink();
                             }
-                            if (idx < 0 || idx >= labels.length)
+                            if (!allowed.contains(i)) {
                               return const SizedBox.shrink();
-                            if (!allowed.contains(idx))
-                              return const SizedBox.shrink();
+                            }
 
-                            final isFirst = idx == 0;
-                            final isLast = idx == labels.length - 1;
+                            final isFirst = i == 0;
+                            final isLast = i == labels.length - 1;
                             return Padding(
                               padding: EdgeInsets.only(
-                                  top: 4,
-                                  left: isFirst ? 2 : 0,
-                                  right: isLast ? 8 : 0),
+                                top: 6,
+                                left: isFirst ? 2 : 0,
+                                right: isLast ? 8 : 0,
+                              ),
                               child: Align(
                                 alignment: isLast
                                     ? Alignment.centerRight
                                     : (isFirst
                                         ? Alignment.centerLeft
                                         : Alignment.center),
-                                child: Text(labels[idx],
+                                child: Text(labels[i],
                                     style: const TextStyle(
                                         fontSize: 10, color: Colors.black54)),
                               ),
@@ -433,17 +456,10 @@ class _MetricCard extends StatelessWidget {
 
                     borderData: FlBorderData(
                       show: true,
-                      border: Border(
-                        left: BorderSide(
-                            color: Colors.black.withOpacity(0.35), width: 1),
-                        bottom: BorderSide(
-                            color: Colors.black.withOpacity(0.35), width: 1),
-                        right: const BorderSide(color: Colors.transparent),
-                        top: const BorderSide(color: Colors.transparent),
-                      ),
+                      border: Border.all(color: Colors.black54, width: 1),
                     ),
 
-// di dalam LineChartData(...)
+                    // Tooltip & indikator
                     lineTouchData: LineTouchData(
                       enabled: true,
                       handleBuiltInTouches: true,
@@ -452,38 +468,15 @@ class _MetricCard extends StatelessWidget {
                         fitInsideHorizontally: true,
                         fitInsideVertically: true,
                         getTooltipItems: (touchedSpots) {
-                          final df = DateFormat(
-                              'dd/MM HH:mm'); // ganti ke 'dd/MM HH:mm' kalau mau
                           return touchedSpots.map((s) {
-                            // cari index spot terdekat biar jamnya akurat
-                            int idx = 0;
-                            double best = double.infinity;
-                            for (int i = 0; i < spots.length; i++) {
-                              final d = (spots[i].x - s.x).abs();
-                              if (d < best) {
-                                best = d;
-                                idx = i;
-                              }
-                            }
-
-                            // ambil jam dari x (epoch millis) → fallback ke labels
-                            String timeText;
-                            try {
-                              final millis = spots[idx].x.toInt();
-                              timeText = df.format(
-                                  DateTime.fromMillisecondsSinceEpoch(millis));
-                            } catch (_) {
-                              timeText = (idx >= 0 && idx < labels.length)
-                                  ? labels[idx]
-                                  : '';
-                            }
-
+                            final i = s.x.round().clamp(0, labels.length - 1);
+                            final textTime = labels[i];
                             return LineTooltipItem(
-                              // 👉 baris 1 = jam, baris 2 = nilai + unit
-                              '$timeText\n${s.y.toStringAsFixed(2)} $unit',
+                              '$textTime\n${s.y.toStringAsFixed(2)} $unit',
                               TextStyle(
-                                  color: lineColor,
-                                  fontWeight: FontWeight.bold),
+                                color: lineColor,
+                                fontWeight: FontWeight.bold,
+                              ),
                             );
                           }).toList();
                         },
@@ -491,8 +484,9 @@ class _MetricCard extends StatelessWidget {
                       getTouchedSpotIndicator: (bar, idxs) => idxs
                           .map((_) => TouchedSpotIndicatorData(
                                 FlLine(
-                                    color: lineColor.withOpacity(0.25),
-                                    strokeWidth: 1),
+                                  color: lineColor.withOpacity(0.25),
+                                  strokeWidth: 1,
+                                ),
                                 FlDotData(
                                   show: true,
                                   getDotPainter: (spot, __, ___, ____) =>
@@ -506,6 +500,7 @@ class _MetricCard extends StatelessWidget {
                               ))
                           .toList(),
                     ),
+
                     lineBarsData: [
                       LineChartBarData(
                         spots: spots,
@@ -609,7 +604,8 @@ class _LampStickCardState extends State<_LampStickCard> {
                       fontWeight: FontWeight.bold,
                       color: Colors.black)),
               const SizedBox(height: 8),
-// Lamp bar (progress bar)
+
+              // Lamp bar (progress bar)
               Builder(
                 builder: (context) {
                   final bg = Colors.grey.withOpacity(0.12);

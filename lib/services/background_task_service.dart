@@ -211,6 +211,10 @@ class DataService {
           faultPump: faultPump,
           highSurfaceTank: highSurfaceTank,
           lowSurfaceTank: lowSurfaceTank,
+          m800Toc: m800_toc,
+          m800Temp: m800_temp,
+          m800Conduct: m800_conduct,
+          m800Lamp: m800_lamp,
         );
       }
     } catch (e) {
@@ -370,6 +374,10 @@ class DataService {
     required int faultPump,
     required int highSurfaceTank,
     required int lowSurfaceTank,
+    required double m800Toc,
+    required double m800Temp,
+    required double m800Conduct,
+    required int m800Lamp,
   }) async {
     final box = await Hive.openBox('alarmHistoryBox');
     final prefs = await SharedPreferences.getInstance();
@@ -447,6 +455,29 @@ class DataService {
         name: "Low Domestic Tank",
         value: lowSurfaceTank,
       ),
+      _AlarmRule(
+        enabled: prefs.getBool("task10") ?? false,
+        condition: () => lowSurfaceTank == 1,
+        message: "Warning: Low Surface Tank Detected",
+        name: "Low Domestic Tank",
+        value: lowSurfaceTank,
+      ),
+      _AlarmRule(
+        enabled: prefs.getBool("task11") ?? false,
+        condition: () =>
+            (m800Temp > 35.0) ||
+            (m800Toc > 100.0) ||
+            (m800Conduct > 1.2) ||
+            (m800Lamp == 0),
+        message: "Warning: M800 out of range",
+        name: "M800 Out of Range",
+        value: {
+          if (m800Temp > 35.0) 'temp': m800Temp,
+          if (m800Toc > 100.0) 'toc': m800Toc,
+          if (m800Conduct > 1.2) 'conduct': m800Conduct,
+          if (m800Lamp == 0) 'lamp': m800Lamp,
+        },
+      ),
     ];
 
     for (final rule in alarmRules) {
@@ -457,7 +488,7 @@ class DataService {
           'alarmName': rule.name,
           'sensorValue': rule.value,
         });
-        await box.flush(); // <-- penting, commit ke disk
+        await box.flush();
 
         FlutterBackgroundService().invoke('alarm_update');
       }

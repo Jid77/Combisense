@@ -327,7 +327,7 @@ class _TempCircleWithTap extends StatelessWidget {
                     if (val != null && val > 0) {
                       service.setPreset(val);
                       Navigator.pop(context);
-                      AuthHelper.showTopNotification(
+                      AuthHelper.showTopNotificationSuccess(
                           context, "Preset $label diatur: $val");
                     }
                   },
