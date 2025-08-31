@@ -267,7 +267,7 @@ class indikatorPage extends StatelessWidget {
                       child: FittedBox(
                         fit: BoxFit.scaleDown,
                         child: Text(
-                          status == 0 ? "Normal" : "Abnormal",
+                          status == 1 ? "Normal" : "Abnormal",
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 10,
@@ -298,7 +298,7 @@ Widget _buildStatusWidget0(
   return LayoutBuilder(
     builder: (context, constraints) {
       return Container(
-        width: constraints.maxWidth, // ikuti lebar parent
+        width: constraints.maxWidth,
         padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 8.0),
         decoration: BoxDecoration(
           color: Colors.white,

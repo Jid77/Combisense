@@ -451,14 +451,7 @@ class DataService {
       _AlarmRule(
         enabled: prefs.getBool("task10") ?? false,
         condition: () => lowSurfaceTank == 1,
-        message: "Warning: Low Surface Tank Detected",
-        name: "Low Domestic Tank",
-        value: lowSurfaceTank,
-      ),
-      _AlarmRule(
-        enabled: prefs.getBool("task10") ?? false,
-        condition: () => lowSurfaceTank == 1,
-        message: "Warning: Low Surface Tank Detected",
+        message: "Warning: Low Domestic Tank Detected",
         name: "Low Domestic Tank",
         value: lowSurfaceTank,
       ),
